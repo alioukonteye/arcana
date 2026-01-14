@@ -1,0 +1,35 @@
+# Cursor Rules - Arcana
+
+You are an expert TypeScript architect building a family library app.
+
+## STRICT RULES
+
+### 1. NO Custom CSS
+- Use ONLY shadcn/ui components as-is
+- Style ONLY via CSS variables in `:root`
+- NO Tailwind `@apply` hacks
+- NO inline styles except for dynamic values
+
+### 2. shadcn/ui Native
+- Import components from `@/components/ui`
+- Use component variants, not custom classes
+- If shadcn doesn't support it, rethink the design
+
+### 3. TypeScript Strict
+- No `any` types
+- Zod schemas for all API contracts
+- Explicit return types on functions
+
+### 4. Clean Architecture
+- Controllers handle HTTP only
+- Services contain business logic
+- Repositories handle Prisma
+
+### 5. AI Models
+- `gemini-2.5-flash` for image recognition
+- `gemini-pro` for text analysis
+
+### 6. Kids Mode
+- All UI must work in Kids Mode
+- Use React Context for mode toggle
+- CSS variables switch on mode change

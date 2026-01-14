@@ -7,11 +7,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Enums
 enum BookStatus {
   TO_READ
   READING
   READ
+  WISHLIST
 }
 
 enum Owner {
@@ -22,47 +22,89 @@ enum Owner {
   FAMILY
 }
 
-// Models
-
 model User {
   id        String   @id @default(uuid())
-  name      String
+  clerkId   String?  @unique
+  email     String?  @unique
+  name      String   @unique
   isChild   Boolean  @default(false)
+  birthDate DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  loans     Loan[]
+  loans           Loan[]
+  books           Book[]          @relation("AddedBy")
+  readingStatuses ReadingStatus[]
 }
 
 model Book {
-  id          String     @id @default(uuid())
-  isbn        String?    @unique
-  title       String
-  author      String
-  coverUrl    String?
-  description String?
+  id              String     @id @default(uuid())
+  isbn            String?
+  title           String
+  author          String
+  coverUrl        String?
+  description     String?
+  publisher       String?
+  publishedDate   String?
+  pageCount       Int?
+  categories      String[]   @default([])
 
-  // Inventory details
-  status      BookStatus @default(TO_READ)
-  owner       Owner      @default(FAMILY)
-  addedBy     String?    // User ID who scanned it
+  // Scan metadata
+  confidenceScore Float?     // 0-1 from Gemini
+  googleBooksId   String?    // For cross-validation
 
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  // Inventory
+  status          BookStatus @default(TO_READ)
+  owner           Owner      @default(FAMILY)
+  copyNumber      Int        @default(1)  // For multiple copies
 
-  loans       Loan[]
+  // Loan tracking (simple)
+  loanedTo        String?    // Borrower name when book is out
+
+  // Relations
+  addedById       String?
+  addedBy         User?      @relation("AddedBy", fields: [addedById], references: [id])
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  loans           Loan[]
+  readingStatuses ReadingStatus[]
+
+  @@index([title, author])
+  @@index([owner])
+  @@index([status])
 }
 
 model Loan {
-  id          String    @id @default(uuid())
-  bookId      String
-  book        Book      @relation(fields: [bookId], references: [id])
+  id           String    @id @default(uuid())
+  bookId       String
+  book         Book      @relation(fields: [bookId], references: [id])
 
-  borrowerName String   // External person name
+  borrowerName String
 
-  lentByUserId String?
-  lentByUser   User?    @relation(fields: [lentByUserId], references: [id])
+  lentById     String?
+  lentBy       User?     @relation(fields: [lentById], references: [id])
 
-  lentAt      DateTime  @default(now())
-  returnedAt  DateTime?
+  lentAt       DateTime  @default(now())
+  returnedAt   DateTime?
+
+  @@index([bookId])
+}
+
+// Per-user reading status tracking (who read what)
+model ReadingStatus {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  bookId    String
+  book      Book       @relation(fields: [bookId], references: [id])
+  status    BookStatus @default(TO_READ)
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([userId, bookId])
+  @@index([userId])
+  @@index([bookId])
 }
