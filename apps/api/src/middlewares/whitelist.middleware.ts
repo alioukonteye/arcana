@@ -1,4 +1,4 @@
-import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
+import { clerkClient } from '@clerk/clerk-sdk-node';
 import { Request, Response, NextFunction } from 'express';
 
 // Whitelist des emails autorisés
@@ -19,35 +19,60 @@ interface AuthenticatedRequest extends Request {
 }
 
 export const WhitelistMiddleware = [
-  // 1. Verify Clerk Token
-  ClerkExpressWithAuth(),
+  // 1. Manual Token Verification (Replaces ClerkExpressWithAuth for debugging/control)
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Check env var
+      if (!process.env.CLERK_SECRET_KEY) {
+        console.error('CRITICAL: CLERK_SECRET_KEY missing in Middleware');
+        throw new Error('Server misconfiguration: Missing CLERK_SECRET_KEY');
+      }
+
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.warn('Middleware: Missing or malformed Authorization header');
+        res.status(401).json({ error: 'Unauthorized', message: 'Missing Bearer Token' });
+        return;
+      }
+
+      const token = authHeader.split(' ')[1];
+
+      // Verify token manually using the SDK
+      // This uses CLERK_SECRET_KEY from env automatically
+      const claims = await clerkClient.verifyToken(token);
+
+      // Populate req.auth to match ClerkExpressWithAuth structure
+      (req as unknown as AuthenticatedRequest).auth = {
+        userId: claims.sub,
+        sessionId: claims.sid || null,
+        claims: claims
+      };
+
+      // console.log(`Middleware: Token verified for user ${claims.sub}`);
+      next();
+    } catch (error) {
+      console.error('Middleware: Token Verification Failed:', error);
+      res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Token verification failed',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  },
 
   // 2. Check Whitelist
   async (req: Request, res: Response, next: NextFunction) => {
     const authReq = req as unknown as AuthenticatedRequest;
 
-    if (!authReq.auth.userId) {
+    if (!authReq.auth || !authReq.auth.userId) {
+      // Should not happen if step 1 passed
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
     try {
       // Fetch user details from Clerk to get the email
-      // Note: In optimal setup, email should be in session claims to avoid API call
-      // verifying session claims or fetching user
-      // For now, we will use the unexpected simplicity: we trust the client to have authenticated via Clerk,
-      // but strictly we should verify the email match.
-
-      // However, ClerkExpressWithAuth doesn't populate the email directly in req.auth unless configured in session tokens.
-      // Let's rely on the fact that we can get the user via the SDK if needed, BUT
-      // for performance and simplicity in this specific project, let's use the clerk client to fetch user
-      // OR inspect the token if available.
-
-      // Better approach for Node.js integration:
-      // The `req.auth` object contains limited info.
-      // Let's use the `clerkClient` to fetch the user's email.
-      const clerk = require('@clerk/clerk-sdk-node').clerkClient;
-      const user = await clerk.users.getUser(authReq.auth.userId);
+      const user = await clerkClient.users.getUser(authReq.auth.userId);
       const userEmail = user.emailAddresses[0]?.emailAddress;
 
       if (!userEmail || !ALLOWED_EMAILS.includes(userEmail)) {
@@ -64,8 +89,8 @@ export const WhitelistMiddleware = [
 
       next();
     } catch (error) {
-      console.error('Clerk Middleware Error:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
+      console.error('Whitelist Check Error:', error);
+      res.status(500).json({ error: 'Internal Server Error', details: String(error) });
     }
   }
 ];

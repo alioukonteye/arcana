@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 
 import { Separator } from '@/components/ui/separator';
@@ -60,14 +61,15 @@ export function FilterSidebar({ filters, onFiltersChange, isOpen, onClose }: Fil
     owners: ['ALIOU', 'SYLVIA', 'SACHA', 'LISA', 'FAMILY'],
   });
 
+  const { request } = useApi();
+
   useEffect(() => {
     fetchFilterOptions();
   }, []);
 
   const fetchFilterOptions = async () => {
     try {
-      const response = await fetch('http://localhost:3000/books/filters');
-      const data = await response.json();
+      const data = await request<{ success: boolean; data: FilterOptions }>('/books/filters');
       if (data.success) {
         setOptions(data.data);
       }
@@ -93,7 +95,7 @@ export function FilterSidebar({ filters, onFiltersChange, isOpen, onClose }: Fil
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   // Filter content
-  const FilterContent = () => (
+  const filterContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b">
@@ -264,7 +266,7 @@ export function FilterSidebar({ filters, onFiltersChange, isOpen, onClose }: Fil
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="md:hidden fixed inset-y-0 left-0 w-[85vw] max-w-sm bg-card z-50 shadow-xl"
             >
-              <FilterContent />
+              {filterContent}
             </motion.aside>
           </>
         )}
@@ -272,7 +274,7 @@ export function FilterSidebar({ filters, onFiltersChange, isOpen, onClose }: Fil
 
       {/* Desktop: Fixed sidebar */}
       <aside className="hidden md:flex w-64 border-r bg-card flex-col h-full">
-        <FilterContent />
+        {filterContent}
       </aside>
     </>
   );

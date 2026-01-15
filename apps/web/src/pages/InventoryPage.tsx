@@ -10,6 +10,7 @@ import { Loader2, BookOpen, CheckCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useBooks, UseBooksFilters } from '@/hooks/useBooks';
+import { useApi } from '@/lib/api';
 import { ScanStats, BookStatus, Owner } from '@arcana/shared';
 
 interface InventoryPageProps {
@@ -47,6 +48,8 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
 
   const { books, isLoading, hasMore, loadMore, total } = useBooks(filters, refreshTrigger);
 
+  const { request } = useApi();
+
   const [filterOptions, setFilterOptions] = useState<{
     categories: string[];
     authors: string[];
@@ -54,8 +57,7 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
 
   useEffect(() => {
     // Fetch filter options locally
-    fetch('http://localhost:3000/books/filters')
-      .then(res => res.json())
+    request<{ success: boolean; data: { categories: string[]; authors: string[] } }>('/books/filters')
       .then(data => {
         if (data.success) {
           setFilterOptions({
@@ -93,7 +95,7 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
     });
   };
 
-  if (isLoading) {
+  if (isLoading && books.length === 0) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

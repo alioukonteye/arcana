@@ -15,6 +15,7 @@ export const useApi = () => {
 
   const request = async <T>(endpoint: string, options: ApiOptions = {}): Promise<T> => {
     const token = await getToken();
+    console.log('useApi Debug - Token:', token ? 'Found (' + token.substring(0, 10) + '...)' : 'MISSING/NULL');
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${token}`,
       ...options.headers,

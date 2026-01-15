@@ -19,7 +19,7 @@ export function ReviewSection({ reviews, isLoading }: ReviewSectionProps) {
     return <div className="animate-pulse h-32 bg-muted rounded-xl" />;
   }
 
-  if (reviews.length === 0) {
+  if (!reviews || reviews.length === 0) {
     return (
       <div className="py-8 text-center text-muted-foreground bg-muted/20 rounded-xl">
         <p>Aucune critique disponible pour le moment.</p>

@@ -1,35 +1,32 @@
-# Cursor Rules - Arcana
+# Cursor Rules - Arcana (Agent Skills Edition)
 
 You are an expert TypeScript architect building a family library app.
 
-## STRICT RULES
+## 🧠 AGENT SKILLS ACTIVATED
+Before generating code, YOU MUST refer to the specific Skill for the context you are working in:
 
-### 1. NO Custom CSS
-- Use ONLY shadcn/ui components as-is
-- Style ONLY via CSS variables in `:root`
-- NO Tailwind `@apply` hacks
-- NO inline styles except for dynamic values
+| Context | Skill Folder |
+| :--- | :--- |
+| **UI / Design / CSS** | `.arcana/skills/skill-design-authority` |
+| **Scanning / AI / Books** | `.arcana/skills/skill-vision-sourcing` |
+| **Auth / Users / Kids** | `.arcana/skills/skill-family-auth` |
+| **DB / Backend / API** | `.arcana/skills/skill-data-architecture` |
 
-### 2. shadcn/ui Native
-- Import components from `@/components/ui`
-- Use component variants, not custom classes
-- If shadcn doesn't support it, rethink the design
+---
 
-### 3. TypeScript Strict
-- No `any` types
-- Zod schemas for all API contracts
-- Explicit return types on functions
+## ⚡ QUICK START RULES
 
-### 4. Clean Architecture
-- Controllers handle HTTP only
-- Services contain business logic
-- Repositories handle Prisma
+### 1. UI (Strict)
+- **NO Custom CSS**. Use shadcn/ui components + Tailwind utilities only.
+- **NO hex colors**. Use CSS variables (`var(--primary)`).
+- **Kids Mode**: Ensure UI adapts (larger targets) via Context.
 
-### 5. AI Models
-- `gemini-2.5-flash` for image recognition
-- `gemini-pro` for text analysis
+### 2. Tech Stack
+- Monorepo (Turbo).
+- React (Vite) + Node (Express).
+- PostgreSQL + Prisma.
+- Clean Arch: Controller -> Service -> Repository.
 
-### 6. Kids Mode
-- All UI must work in Kids Mode
-- Use React Context for mode toggle
-- CSS variables switch on mode change
+### 3. Safety
+- Zod validation for EVERYTHING (API inputs/outputs).
+- Strict TypeScript (No `any`).

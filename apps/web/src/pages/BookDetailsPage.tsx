@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useKidsMode } from '@/contexts/KidsModeContext';
 import { ReviewSection } from '@/components/ReviewSection';
+import { useApi } from '@/lib/api';
 
 // Mock Data for dev & demo
 
@@ -24,6 +25,7 @@ const USER_STATUS = 'TO_READ';
 // const USER_STATUS = 'TO_READ'; // Removed hardcoded constant
 
 export function BookDetailsPage() {
+  const { request } = useApi();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { isKidsMode } = useKidsMode();
@@ -35,13 +37,11 @@ export function BookDetailsPage() {
 
   useEffect(() => {
     if (id) {
-      fetch(`http://localhost:3000/books/${id}`)
-        .then(res => res.json())
+      request<{ success: boolean; data: any }>(`/books/${id}`)
         .then(data => {
           if (data.success) {
             setBook(data.data);
-            setUserStatus(data.data.status); // Default to global status if no user status
-            // In real app we fetch user-specific status
+            setUserStatus(data.data.status);
           }
         })
         .catch(err => console.error(err))
@@ -53,10 +53,8 @@ export function BookDetailsPage() {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce livre ?')) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/books/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        navigate('/');
-      }
+      await request(`/books/${id}`, { method: 'DELETE' });
+      navigate('/');
     } catch (err) {
       console.error('Failed to delete', err);
     }
@@ -131,9 +129,7 @@ export function BookDetailsPage() {
                 </Button>
               )}
 
-              <Button variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
-                Supprimer
-              </Button>
+
             </div>
           </div>
 
@@ -264,6 +260,16 @@ export function BookDetailsPage() {
 
         {/* Reviews Section */}
         <ReviewSection reviews={book.reviews} />
+
+        <div className="mt-16 mb-8 flex justify-center opacity-40 hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            onClick={handleDelete}
+          >
+            Supprimer ce livre
+          </Button>
+        </div>
 
       </div>
     </div>

@@ -2,9 +2,23 @@
 
 > **Le foyer numérique familial** - Une application de gestion de bibliothèque familiale avec scan IA
 
-[![Stack](https://img.shields.io/badge/Stack-TypeScript%20Monorepo-blue)](./docs/TECHNICAL.md)
-[![API](https://img.shields.io/badge/API-REST-green)](./docs/API.md)
-[![Status](https://img.shields.io/badge/Status-MVP-orange)](./USER_STORIES.md)
+[![Stack](https://img.shields.io/badge/Stack-TypeScript%20Monorepo-blue)](./.arcana/skills/skill-data-architecture/README.md)
+[![API](https://img.shields.io/badge/API-REST-green)](./.arcana/skills/skill-data-architecture/README.md)
+[![Status](https://img.shields.io/badge/Status-MVP-orange)](./.arcana/skills/skill-vision-sourcing/README.md)
+
+---
+
+## 🚀 AGENT SKILLS ARCHITECTURE
+
+Le projet est structuré autour de **Skills** modulaires qui définissent les règles et la logique par domaine.
+Veuillez vous référer à ces documents pour toute implémentation.
+
+| Skill | Description | Lien |
+| :--- | :--- | :--- |
+| **🎨 Design Authority** | Règles UI/UX, shadcn/ui, Vibe Engineering | [Règles UI](./.arcana/skills/skill-design-authority/README.md) |
+| **👁️ Vision & Sourcing** | Scan d'étagère, Google Books, Anti-spoiler | [Logique Scan](./.arcana/skills/skill-vision-sourcing/README.md) |
+| **👨‍👩‍👧‍👦 Family & Auth** | Rôles (Kids Mode), Whitelist, Profils | [Règles Auth](./.arcana/skills/skill-family-auth/README.md) |
+| **🏗️ Data Architecture** | Clean Arch, Prisma, Monorepo Stack | [Patterns Tech](./.arcana/skills/skill-data-architecture/README.md) |
 
 ---
 
@@ -20,7 +34,7 @@ Arcana est le **cœur numérique** de notre foyer. Il connecte Sylvia, Aliou, Sa
 | 📚 **Inventaire Intelligent** | Grille HD avec filtres puissants (statut, propriétaire, catégorie) | ✅ |
 | 🔄 **Suivi des Prêts** | Ne perdez plus jamais un livre prêté | ✅ |
 | 🤖 **Cartes de Lecture IA** | Résumés et questions (protégés anti-spoiler) | ✅ |
-| � **Statut par Utilisateur** | Chaque membre suit sa propre progression | ✅ |
+| 👤 **Statut par Utilisateur** | Chaque membre suit sa propre progression | ✅ |
 | 👶 **Mode Enfants** | Interface simplifiée pour Sacha et Lisa | ✅ |
 
 ## 🚀 Démarrage Rapide
@@ -50,50 +64,16 @@ pnpm dev
 - 🌐 Frontend: http://localhost:5173
 - 🔌 API: http://localhost:3000
 
-## 📖 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [📐 Architecture Technique](./docs/TECHNICAL.md) | Stack, structure, patterns |
-| [📋 Spécifications Fonctionnelles](./docs/FUNCTIONAL.md) | User stories, règles métier |
-| [🔌 Référence API](./docs/API.md) | Endpoints, requêtes, réponses |
-| [💻 Guide Développeur](./docs/DEVELOPMENT.md) | Setup, conventions, contribution |
-| [📜 Manifeste Produit](./PRODUCT_MANIFESTO.md) | Vision et principes de design |
-
-## 🏗️ Architecture
+## 🏗️ Architecture (Monorepo)
 
 ```
 arcana/
+├── .arcana/skills/    # 🧠 INTELLIGENCE DU PROJET
 ├── apps/
 │   ├── web/           # React SPA (Vite + shadcn/ui)
 │   └── api/           # Express REST API (Prisma)
 ├── packages/
 │   └── shared/        # Types et schémas Zod partagés
-└── docs/              # Documentation complète
-```
-
-> Voir [TECHNICAL.md](./docs/TECHNICAL.md) pour l'architecture détaillée.
-
-## 🛠️ Stack Technique
-
-| Couche | Technologies |
-|--------|-------------|
-| **Frontend** | React 18, Vite, TypeScript, shadcn/ui, TailwindCSS, Framer Motion |
-| **Backend** | Node.js, Express, Prisma, Zod |
-| **Base de données** | PostgreSQL |
-| **IA** | Gemini 2.5 Flash (vision), Google Books API |
-| **Monorepo** | Turborepo, pnpm workspaces |
-
-## 📝 Mise à Jour de la Documentation
-
-La documentation peut être mise à jour automatiquement après des changements majeurs:
-
-```bash
-# Via workflow Gemini
-/update-docs
-
-# Ou manuellement
-pnpm docs:update
 ```
 
 ## 👥 L'Équipe Arcana

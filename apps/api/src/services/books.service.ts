@@ -7,7 +7,7 @@ import {
   ScanResult
 } from '@arcana/shared';
 // Ensure runtime compatibility if shared enum differs (it shouldn't after regen)
-const toPrismaStatus = (s: BookStatus): PrismaBookStatus => s as unknown as PrismaBookStatus;
+
 
 const prisma = new PrismaClient();
 
@@ -40,7 +40,8 @@ export const BooksService = {
           // Cross-validate with Google Books
           const validation = await GoogleBooksService.validateAndEnrich(
             book.title,
-            book.author
+            book.author,
+            book.publisher // Pass extracted publisher for better matching
           );
 
           const finalConfidence = (book.confidence + validation.confidence) / 2;

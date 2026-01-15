@@ -4,6 +4,10 @@ import fs from "fs";
 export interface ScannedBook {
   title: string;
   author: string;
+  publisher?: string;
+  collection?: string;
+  spineColor?: string;
+  visualHints?: string;
   confidence: number;
 }
 
@@ -28,20 +32,28 @@ export const GeminiService = {
 
       // 2. Optimized prompt for shelf detection
       const prompt = `
-Analyse cette photo d'étagère. Identifie TOUS les livres visibles.
-Pour chaque livre, extrais le titre et l'auteur lisibles sur la tranche.
+Tu es un expert bibliographe et archiviste numérique. Analyse cette photo de bibliothèque avec une extrême précision.
 
-Retourne UNIQUEMENT un tableau JSON brut (pas de markdown, pas de backticks) :
-[
-  { "title": "Titre du Livre", "author": "Nom Auteur", "confidence": 0.85 }
-]
+Pour chaque livre visible (même partiellement), extrais les informations suivantes dans un objet JSON. 
+L'objectif est d'identifier l'édition EXACTE (Publisher/Collection) pour que la couverture numérique corresponde parfaitement à l'objet physique.
+
+Champs requis par livre :
+- title: Titre complet
+- author: Auteur
+- publisher: Éditeur identifié (via logo ou texte, ex: "Gallimard", "Penguin", "Actes Sud")
+- collection: Collection visible (ex: "Folio", "Livre de Poche", "Blanche", "Pléiade")
+- spineColor: Couleur dominante de la tranche
+- visualHints: Une courte description des éléments visuels distinctifs (ex: "Texte doré", "Logo pingouin orange", "Numéro 42 sur la tranche")
+- confidence: Score 0-1 basés sur ta certitude
 
 Règles :
-- Sois exhaustif, même pour les tranches inclinées ou partiellement visibles
-- Si un titre ou auteur est partiellement lisible, fais de ton mieux
-- Estime la confidence (0-1) basée sur la lisibilité
-- Si un livre est totalement illisible, ignore-le simplement (ne l'inclus pas)
-- Si aucun livre n'est détectable, retourne un tableau vide []
+1. Si le logo de l'éditeur est un simple symbole (ex: le 'G' de Gallimard), déduis-en le nom.
+2. Note les numéros de série sur la tranche s'ils sont visibles (aide souvent pour les Mangas ou les séries style "Que sais-je").
+3. Si un livre est totalement illisible, ignore-le.
+4. Retourne UNIQUEMENT un tableau JSON brut (pas de markdown, pas de backticks) :
+[
+  { "title": "...", "author": "...", "publisher": "...", "collection": "...", "visualHints": "...", "confidence": 0.9 }
+]
       `.trim();
 
       // 3. Call Gemini Flash

@@ -124,7 +124,27 @@ export const BooksController = {
       if (!book) {
         return res.status(404).json({ success: false, error: "Book not found" });
       }
-      return res.json({ success: true, data: book });
+      // Adapter: Transform Prisma object to Frontend expected View Model
+      const readers = book.readingStatuses.map(status => ({
+        name: status.user.name,
+        status: status.status
+      }));
+
+      // Mock AI Notes structure if not present (since schema has no aiNotes field yet)
+      const aiNotes = {
+        analysis: "Analyse générée par l'IA non disponible pour le moment.",
+        themes: ["Non analysé"],
+        questions: ["Pas de questions disponibles"]
+      };
+
+      const viewModel = {
+        ...book,
+        readers,
+        aiNotes,
+        reviews: [] // Mock empty reviews since not in DB
+      };
+
+      return res.json({ success: true, data: viewModel });
     } catch (error) {
       console.error("Get Book Error:", error);
       return res.status(500).json({ success: false, error: "Failed to fetch book" });

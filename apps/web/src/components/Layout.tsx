@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { UserButton } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 import { Switch } from '@/components/ui/switch';
 import { useKidsMode } from '@/contexts/KidsModeContext';
 import { Sparkles, Camera, Library, Menu, X } from 'lucide-react';
@@ -37,7 +38,7 @@ export function Layout({ children, onScanClick, onMenuClick, isMenuOpen }: Layou
             )}
 
             {/* Logo */}
-            <div className="flex items-center gap-2 md:gap-3">
+            <Link to="/" className="flex items-center gap-2 md:gap-3 hover:opacity-80 transition-opacity">
               <div className="p-1.5 md:p-2 bg-primary/10 rounded-lg">
                 <Library className="h-5 w-5 md:h-6 md:w-6 text-primary" />
               </div>
@@ -49,7 +50,7 @@ export function Layout({ children, onScanClick, onMenuClick, isMenuOpen }: Layou
                   {isKidsMode ? '✨ La bibliothèque familiale' : 'Bibliothèque Familiale'}
                 </p>
               </div>
-            </div>
+            </Link>
           </div>
 
           {/* Right side - Actions */}
