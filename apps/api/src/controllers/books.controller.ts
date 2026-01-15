@@ -2,6 +2,36 @@ import { Request, Response } from 'express';
 import { BooksService } from '../services/books.service';
 import { BookStatus, Owner } from '@arcana/shared';
 import fs from 'fs';
+import { z } from 'zod';
+
+// ============ Validation Schemas ============
+const BookStatusSchema = z.enum(['TO_READ', 'READING', 'READ', 'WISHLIST']);
+const OwnerSchema = z.enum(['ALIOU', 'SYLVIA', 'SACHA', 'LISA', 'FAMILY']);
+
+const UpdateStatusSchema = z.object({
+  status: BookStatusSchema
+});
+
+const UpdateReadingStatusSchema = z.object({
+  userId: z.string().min(1),
+  status: BookStatusSchema
+});
+
+const UpdateLoanSchema = z.object({
+  loanedTo: z.string().nullable()
+});
+
+const CreateBookSchema = z.object({
+  title: z.string().min(1).max(500),
+  author: z.string().min(1).max(200),
+  coverUrl: z.string().url().optional().nullable(),
+  description: z.string().max(5000).optional().nullable(),
+  publisher: z.string().max(200).optional().nullable(),
+  categories: z.array(z.string()).optional().default([]),
+  status: BookStatusSchema.optional().default('TO_READ'),
+  owner: OwnerSchema.optional().default('FAMILY'),
+  isbn: z.string().max(20).optional().nullable()
+});
 
 export const BooksController = {
   /**
@@ -42,8 +72,17 @@ export const BooksController = {
    */
   async create(req: Request, res: Response) {
     try {
-      const bookData = req.body;
-      const book = await BooksService.createBook(bookData);
+      // Validate input
+      const validationResult = CreateBookSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid book data',
+          details: validationResult.error.flatten()
+        });
+      }
+
+      const book = await BooksService.createBook(validationResult.data);
       return res.status(201).json({ success: true, data: book });
     } catch (error) {
       console.error("Create Book Error:", error);
@@ -157,8 +196,17 @@ export const BooksController = {
    */
   async updateStatus(req: Request, res: Response) {
     try {
-      const { status } = req.body;
-      const book = await BooksService.updateBookStatus(req.params.id, status);
+      // Validate input
+      const validationResult = UpdateStatusSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid status',
+          details: validationResult.error.flatten()
+        });
+      }
+
+      const book = await BooksService.updateBookStatus(req.params.id, validationResult.data.status);
       return res.json({ success: true, data: book });
     } catch (error) {
       console.error("Update Status Error:", error);
@@ -172,7 +220,17 @@ export const BooksController = {
    */
   async updateReadingStatus(req: Request, res: Response) {
     try {
-      const { userId, status } = req.body;
+      // Validate input
+      const validationResult = UpdateReadingStatusSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid reading status data',
+          details: validationResult.error.flatten()
+        });
+      }
+
+      const { userId, status } = validationResult.data;
       const readingStatus = await BooksService.updateReadingStatus(
         req.params.id,
         userId,
@@ -191,8 +249,17 @@ export const BooksController = {
    */
   async updateLoan(req: Request, res: Response) {
     try {
-      const { loanedTo } = req.body;
-      const book = await BooksService.updateLoan(req.params.id, loanedTo);
+      // Validate input
+      const validationResult = UpdateLoanSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid loan data',
+          details: validationResult.error.flatten()
+        });
+      }
+
+      const book = await BooksService.updateLoan(req.params.id, validationResult.data.loanedTo);
       return res.json({ success: true, data: book });
     } catch (error) {
       console.error("Update Loan Error:", error);

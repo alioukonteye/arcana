@@ -1,11 +1,63 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+// ============ Security Middleware ============
+
+// Helmet - Security headers (XSS, Clickjacking, etc.)
+// Configured to allow external images (Google Books covers, etc.)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for React dev
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:", "http:"], // Allow external images
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      connectSrc: ["'self'", "https:", "http://localhost:*"],
+      frameSrc: ["'self'", "https://accounts.google.com", "https://*.clerk.accounts.dev"],
+    }
+  }
+}));
+
+// CORS - Restrict origins (add production URL when deploying)
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
+
+// Rate limiting - Global (100 requests per 15 min)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use(globalLimiter);
+
+// Rate limiting - Strict for AI scan (10 per 15 min to control costs)
+const scanLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Scan limit reached. Please wait before scanning again.' }
+});
+app.use('/books/scan', scanLimiter);
+
+app.use(express.json({ limit: '10mb' })); // Limit body size
 
 import { booksRouter } from './routes/books.routes';
 import { usersRouter } from './routes/users.routes';

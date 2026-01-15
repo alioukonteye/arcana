@@ -202,7 +202,7 @@ export function FilterSidebar({ filters, onFiltersChange, isOpen, onClose }: Fil
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Toutes les catégories</SelectItem>
-                    {options.categories.map((cat) => (
+                    {options.categories.filter(cat => cat && cat.trim() !== '').map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {cat}
                       </SelectItem>
@@ -230,7 +230,7 @@ export function FilterSidebar({ filters, onFiltersChange, isOpen, onClose }: Fil
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Tous les auteurs</SelectItem>
-                  {options.authors.map((author) => (
+                  {options.authors.filter(author => author && author.trim() !== '').map((author) => (
                     <SelectItem key={author} value={author}>
                       {author}
                     </SelectItem>

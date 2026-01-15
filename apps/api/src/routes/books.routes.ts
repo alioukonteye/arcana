@@ -4,7 +4,22 @@ import { BooksController } from '../controllers/books.controller';
 import { WhitelistMiddleware } from '../middlewares/whitelist.middleware';
 
 const router = Router();
-const upload = multer({ dest: 'uploads/' });
+
+// Secure Multer configuration
+const upload = multer({
+    dest: 'uploads/',
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5MB max
+    },
+    fileFilter: (_req, file, cb) => {
+        // Only allow images
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed'));
+        }
+    }
+});
 
 // Apply auth middleware to all books routes
 router.use(WhitelistMiddleware);
