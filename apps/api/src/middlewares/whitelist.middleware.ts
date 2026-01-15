@@ -1,11 +1,11 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import { Request, Response, NextFunction } from 'express';
 
-// Whitelist des emails autorisés
-const ALLOWED_EMAILS = [
-  'aliou.konteye@gmail.com',
-  'yourlittlenini@gmail.com'
-];
+// Whitelist des emails autorisés (chargée depuis les variables d'environnement)
+const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS || '')
+  .split(',')
+  .map(email => email.trim())
+  .filter(email => email.length > 0);
 
 interface AuthenticatedRequest extends Request {
   auth: {

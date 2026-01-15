@@ -24,7 +24,7 @@ Veuillez vous référer à ces documents pour toute implémentation.
 
 ## 🎯 Vision
 
-Arcana est le **cœur numérique** de notre foyer. Il connecte Sylvia, Aliou, Sacha et Lisa à travers une organisation partagée et des moments de découverte littéraire.
+Arcana est le **cœur numérique** de notre foyer. Il connecte toute la famille à travers une organisation partagée et des moments de découverte littéraire.
 
 ## ✨ Fonctionnalités Principales
 
@@ -35,7 +35,7 @@ Arcana est le **cœur numérique** de notre foyer. Il connecte Sylvia, Aliou, Sa
 | 🔄 **Suivi des Prêts** | Ne perdez plus jamais un livre prêté | ✅ |
 | 🤖 **Cartes de Lecture IA** | Résumés et questions (protégés anti-spoiler) | ✅ |
 | 👤 **Statut par Utilisateur** | Chaque membre suit sa propre progression | ✅ |
-| 👶 **Mode Enfants** | Interface simplifiée pour Sacha et Lisa | ✅ |
+| 👶 **Mode Enfants** | Interface simplifiée pour les plus jeunes | ✅ |
 
 ## 🚀 Démarrage Rapide
 
@@ -76,14 +76,12 @@ arcana/
 │   └── shared/        # Types et schémas Zod partagés
 ```
 
-## 👥 L'Équipe Arcana
+## 👥 Contributeurs
 
-- **Aliou** - Développeur principal
-- **Sylvia** - Product Owner & Testeuse UX
-- **Sacha** (9 ans) & **Lisa** (6 ans) - Consultants Mode Enfants 👶
+Projet familial développé avec ❤️
 
 ---
 
 <p align="center">
-  <em>Fait avec ❤️ pour la famille Konteye</em>
+  <em>Fait avec ❤️ pour la famille</em>
 </p>

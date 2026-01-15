@@ -6,10 +6,11 @@ import { SignInPage } from '@/pages/SignInPage';
 import { RestrictedAccessPage } from '@/pages/RestrictedAccessPage';
 
 // Whitelist configuration (Frontend check for UX)
-const ALLOWED_EMAILS = [
-  'aliou.konteye@gmail.com',
-  'yourlittlenini@gmail.com'
-];
+// Loaded from environment variables to avoid hardcoding personal data
+const ALLOWED_EMAILS = (import.meta.env.VITE_ALLOWED_EMAILS || '')
+  .split(',')
+  .map((email: string) => email.trim())
+  .filter((email: string) => email.length > 0);
 
 interface AuthGuardProps {
   children: ReactNode;
