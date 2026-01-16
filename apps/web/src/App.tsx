@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { KidsModeProvider } from '@/contexts/KidsModeContext';
 import { Layout } from '@/components/Layout';
 import { InventoryPage } from '@/pages/InventoryPage';
 import { ScannerModal } from '@/components/ScannerModal';
 import { AuthGuard } from '@/components/AuthGuard';
-
+import { Routes, Route, useLocation, Link, useParams } from 'react-router-dom';
+import { BookDetailsPage } from '@/pages/BookDetailsPage';
 
 interface ScanStats {
   detected: number;
@@ -13,35 +14,42 @@ interface ScanStats {
   skipped: number;
 }
 
-import { Routes, Route, BrowserRouter } from 'react-router-dom';
-import { BookDetailsPage } from '@/pages/BookDetailsPage';
+// Scroll to top on route change
+function ScrollToTop() {
+  const location = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  return null;
+}
+
+// Dummy components removed
 
 function AppContent() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [lastScanStats, setLastScanStats] = useState<ScanStats | null>(null);
+  const location = useLocation();
 
   const handleScanSuccess = (stats: ScanStats) => {
     setLastScanStats(stats);
     setRefreshTrigger(prev => prev + 1);
-
-    // Clear stats after 10 seconds
     setTimeout(() => setLastScanStats(null), 10000);
   };
 
   return (
-    <BrowserRouter>
-      <Layout
-        onScanClick={() => setIsScannerOpen(true)}
-      >
-        <Routes>
+    <>
+      <ScrollToTop />
+      <Layout onScanClick={() => setIsScannerOpen(true)}>
+        <Routes location={location} key={location.pathname}>
           <Route
             path="/"
             element={
               <InventoryPage
                 refreshTrigger={refreshTrigger}
                 lastScanStats={lastScanStats}
-                // isMenuOpen not needed anymore
                 isMenuOpen={false}
                 onMenuClose={() => { }}
               />
@@ -56,7 +64,7 @@ function AppContent() {
           onSuccess={handleScanSuccess}
         />
       </Layout>
-    </BrowserRouter>
+    </>
   );
 }
 
@@ -67,7 +75,6 @@ function App() {
         <AppContent />
       </AuthGuard>
     </KidsModeProvider>
-
   );
 }
 

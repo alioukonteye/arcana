@@ -38,7 +38,14 @@ export const useApi = () => {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Something went wrong');
+      console.error('API Error Details:', {
+        status: response.status,
+        data
+      });
+      const errorMessage = data.details
+        ? `${data.error}: ${data.message} (${data.details})`
+        : data.message || data.error || 'Something went wrong';
+      throw new Error(errorMessage);
     }
 
     return data;

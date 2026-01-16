@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BookCard } from '@/components/BookCard';
 
 import { FilterSidebar } from '@/components/FilterSidebar';
 import { SearchInput } from '@/components/SearchInput';
 import { useKidsMode } from '@/contexts/KidsModeContext';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, BookOpen, CheckCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -38,6 +37,7 @@ const statusChips = [
 
 export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMenuClose }: InventoryPageProps) {
   const { isKidsMode } = useKidsMode();
+  const navigate = useNavigate();
 
   const [filters, setFilters] = useState<UseBooksFilters>({
     status: null,
@@ -46,7 +46,6 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
   });
 
   const { books, isLoading, hasMore, loadMore, total } = useBooks(filters, refreshTrigger);
-
   const { request } = useApi();
 
   const [filterOptions, setFilterOptions] = useState<{
@@ -68,19 +67,10 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
       .catch(err => console.error('Failed to fetch filter options:', err));
   }, []);
 
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
-
   const toggleFilter = (key: keyof UseBooksFilters, value: string) => {
     setFilters(prev => ({
       ...prev,
       [key]: prev[key] === value ? null : value,
-    }));
-  };
-
-  const handleSearch = (value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      search: value || null,
     }));
   };
 
@@ -93,14 +83,6 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
       search: null,
     });
   };
-
-  if (isLoading && books.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-[calc(100vh-8rem)] md:h-[calc(100vh-12rem)]">
@@ -120,7 +102,7 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
           {/* Mobile Search */}
           <div className="px-3 pb-2">
             <SearchInput
-              onSearch={handleSearch}
+              onSearch={(val) => setFilters(prev => ({ ...prev, search: val || null }))}
               placeholder={isKidsMode ? "🔍 Chercher un livre..." : "Rechercher par titre, auteur..."}
               className="w-full"
             />
@@ -137,7 +119,7 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
                       key={chip.value}
                       variant={isActive ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => toggleFilter('owner', chip.value as Owner)}
+                      onClick={() => toggleFilter('owner', chip.value)}
                       className="flex-shrink-0 gap-1.5 rounded-full px-3 h-8"
                     >
                       <span>{chip.emoji}</span>
@@ -161,7 +143,7 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
                       key={chip.value}
                       variant={isActive ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => toggleFilter('status', chip.value as BookStatus)}
+                      onClick={() => toggleFilter('status', chip.value)}
                       className="flex-shrink-0 gap-1.5 rounded-full px-3 h-8"
                     >
                       {isKidsMode && <span>{chip.emoji}</span>}
@@ -227,10 +209,10 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
           )}
 
           {/* Active filters indicator */}
-          {activeFilterCount > 0 && (
+          {Object.values(filters).filter(Boolean).length > 0 && (
             <div className="px-3 pb-2 flex items-center gap-2">
               <span className="text-sm text-muted-foreground">
-                {activeFilterCount} filtre{activeFilterCount > 1 ? 's' : ''} actif{activeFilterCount > 1 ? 's' : ''}
+                {Object.values(filters).filter(Boolean).length} filtre{Object.values(filters).filter(Boolean).length > 1 ? 's' : ''} actif{Object.values(filters).filter(Boolean).length > 1 ? 's' : ''}
               </span>
               <Button
                 variant="ghost"
@@ -247,42 +229,38 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
 
         {/* Content area */}
         <div className="p-3 md:p-6 pb-20">
+
           {/* Scan Stats Banner */}
-          <AnimatePresence>
-            {lastScanStats && lastScanStats.detected > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="mb-4 md:mb-6 p-3 md:p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
-              >
-                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                  <CheckCircle className="h-5 w-5" />
-                  <span className="font-medium">
-                    {isKidsMode ? '🎉 Scan terminé !' : 'Scan terminé !'}
-                  </span>
-                </div>
-                <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                  {lastScanStats.detected} livre(s) détecté(s) • {lastScanStats.added} ajouté(s)
-                  {lastScanStats.duplicates > 0 && ` • ${lastScanStats.duplicates} copie(s)`}
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {lastScanStats && lastScanStats.detected > 0 && (
+            <div
+              className="mb-4 md:mb-6 p-3 md:p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+            >
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-medium">
+                  {isKidsMode ? '🎉 Scan terminé !' : 'Scan terminé !'}
+                </span>
+              </div>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                {lastScanStats.detected} livre(s) détecté(s) • {lastScanStats.added} ajouté(s)
+                {lastScanStats.duplicates > 0 && ` • ${lastScanStats.duplicates} copie(s)`}
+              </p>
+            </div>
+          )}
 
           {/* Header - Hidden on mobile (count shown in chips area) */}
           <div className="hidden md:flex items-center justify-between mb-6">
             <h2 className={`font-bold ${isKidsMode ? 'text-2xl' : 'text-xl'}`}>
               {isKidsMode ? `📚 ${total} livres` : `Votre bibliothèque contient ${total} livre(s)`}
-              {activeFilterCount > 0 && (
+              {Object.values(filters).filter(Boolean).length > 0 && (
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({activeFilterCount} filtre{activeFilterCount > 1 ? 's' : ''})
+                  ({Object.values(filters).filter(Boolean).length} filtre{Object.values(filters).filter(Boolean).length > 1 ? 's' : ''})
                 </span>
               )}
             </h2>
 
             <SearchInput
-              onSearch={handleSearch}
+              onSearch={(val) => setFilters(prev => ({ ...prev, search: val || null }))}
               placeholder="Rechercher..."
               className="w-64"
             />
@@ -297,14 +275,12 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
 
           {/* Empty State */}
           {books.length === 0 && !isLoading ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+            <div
               className="text-center py-16 md:py-20"
             >
               <BookOpen className="h-12 w-12 md:h-16 md:w-16 mx-auto text-muted-foreground mb-4" />
               <h2 className="text-lg md:text-xl font-semibold mb-2">
-                {activeFilterCount > 0
+                {Object.values(filters).some(Boolean)
                   ? isKidsMode
                     ? '😕 Pas de livres avec ces filtres'
                     : 'Aucun livre ne correspond aux filtres'
@@ -313,28 +289,21 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
                     : 'Votre bibliothèque est vide'}
               </h2>
               <p className="text-muted-foreground text-sm md:text-base">
-                {activeFilterCount > 0
+                {Object.values(filters).some(Boolean)
                   ? 'Essayez de modifier vos filtres'
                   : isKidsMode
                     ? 'Scanne une étagère pour commencer ! 📸'
                     : 'Scannez une étagère pour ajouter des livres'}
               </p>
-            </motion.div>
+            </div>
           ) : (
             /* Book Grid */
             <>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-                {books.map((book, index) => (
-                  <motion.div
-                    key={book.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.02 }}
-                  >
-                    <Link to={`/books/${book.id}`} className="block">
-                      <BookCard book={book} />
-                    </Link>
-                  </motion.div>
+                {books.map((book) => (
+                  <Link key={book.id} to={`/books/${book.id}`} className="block group">
+                    <BookCard book={book} />
+                  </Link>
                 ))}
               </div>
 

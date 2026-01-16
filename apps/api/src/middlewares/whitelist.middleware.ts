@@ -51,7 +51,20 @@ export const WhitelistMiddleware = [
       // console.log(`Middleware: Token verified for user ${claims.sub}`);
       next();
     } catch (error) {
-      console.error('Middleware: Token Verification Failed:', error);
+      console.error('================ AUTH DEBUG ================');
+      console.error('Middleware: Token Verification Failed');
+      console.error('Error received:', error);
+      if (error instanceof Error) {
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
+      // Check for common Clerk errors
+      if (typeof error === 'object' && error !== null && 'reason' in error) {
+        console.error('Clerk Error Reason:', (error as any).reason);
+      }
+      console.error('============================================');
+
       res.status(401).json({
         error: 'Unauthorized',
         message: 'Token verification failed',

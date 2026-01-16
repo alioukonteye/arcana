@@ -41,10 +41,11 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting - Global (100 requests per 15 min)
+// Rate limiting - Global (1000 requests per 15 min in dev, 100 in prod)
+const isDev = process.env.NODE_ENV !== 'production';
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: isDev ? 1000 : 100,
   message: { error: 'Too many requests, please try again later.' }
 });
 app.use(globalLimiter);
