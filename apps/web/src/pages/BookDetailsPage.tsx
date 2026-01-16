@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Separator } from '@/components/ui/separator';
 // import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'; // Need to check if Avatar component exists or use base HTML
 import {
@@ -17,12 +25,7 @@ import { useKidsMode } from '@/contexts/KidsModeContext';
 import { ReviewSection } from '@/components/ReviewSection';
 import { useApi } from '@/lib/api';
 
-// Mock Data for dev & demo
 
-
-const USER_STATUS = 'TO_READ';
-
-// const USER_STATUS = 'TO_READ'; // Removed hardcoded constant
 
 export function BookDetailsPage() {
   const { request } = useApi();
@@ -40,7 +43,8 @@ export function BookDetailsPage() {
       if (!id) return;
 
       try {
-        const data = await request<{ success: boolean; data: any }>(`/books/${id}`);
+        const userId = "ALIOU"; // Mock current user
+        const data = await request<{ success: boolean; data: any }>(`/books/${id}?userId=${userId}`);
         if (data.success) {
           setBook(data.data);
           setUserStatus(data.data.status);
@@ -73,15 +77,80 @@ export function BookDetailsPage() {
   const isRead = userStatus === 'READ';
   const isWishlist = book.status === 'WISHLIST';
 
-  const handleLoan = () => {
-    // Mock loan logic
-    const name = prompt("À qui prêtez-vous ce livre ?");
-    if (name) setLoanedTo(name);
+  const handleLoan = async () => {
+    // Simple prompt flow as requested
+    const name = prompt("À qui prêtez-vous ce livre ? (Laisser vide pour signaler le retour)");
+    if (name === null) return; // Cancelled
+
+    if (name.trim() === '') {
+      // Return book
+      try {
+        const response = await request<{ success: boolean; data: any }>(`/books/${id}/loan`, {
+          method: 'PATCH',
+          body: { loanedTo: null, loanDate: null }
+        });
+        if (response.success) {
+          setLoanedTo(null);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Erreur lors du retour.');
+      }
+      return;
+    }
+
+    // Lending
+    const defaultDate = new Date().toISOString().split('T')[0];
+    const dateStr = prompt("Date du prêt (AAAA-MM-JJ)", defaultDate);
+
+    // If user cancels date, we still proceed? Or cancel?
+    // Let's assume default if they cancel or empty, or stick to provided.
+    // Actually if they cancel the 2nd prompt, maybe they want to cancel everything?
+    // Let's use default if empty/cancelled to be safe/quick.
+    const finalDate = dateStr ? dateStr : defaultDate;
+
+    try {
+      const response = await request<{ success: boolean; data: any }>(`/books/${id}/loan`, {
+        method: 'PATCH',
+        body: {
+          loanedTo: name,
+          loanDate: new Date(finalDate).toISOString()
+        }
+      });
+
+      if (response.success) {
+        setLoanedTo(response.data.loanedTo);
+      }
+    } catch (err) {
+      console.error('Failed to update loan status:', err);
+      alert('Impossible de mettre à jour le prêt.');
+    }
   };
 
-  const handleMarkAsRead = () => {
-    setUserStatus('READ');
+  const handleMemberRead = async (userId: string) => {
+    try {
+      const response = await request<{ success: boolean; data: any }>(`/books/${id}/reading-status`, {
+        method: 'POST',
+        body: { userId, status: 'READ' }
+      });
+
+      if (response.success) {
+        if (userId === 'ALIOU') {
+          setUserStatus('READ');
+        }
+        // Refresh book data
+        const currentUserId = 'ALIOU';
+        const bookData = await request<{ success: boolean; data: any }>(`/books/${id}?userId=${currentUserId}`);
+        if (bookData.success) {
+          setBook(bookData.data);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
   };
+
+  const handleMarkAsRead = () => handleMemberRead('ALIOU');
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -190,9 +259,57 @@ export function BookDetailsPage() {
                     <span className="text-xs text-muted-foreground mt-1">{reader.name}</span>
                   </div>
                 ))}
-                <button className="h-10 w-10 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
-                  <span className="text-xs font-medium">+</span>
-                </button>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <button className="h-10 w-10 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground hover:border-primary/50 hover:text-primary transition-colors">
+                      <span className="text-xs font-medium">+</span>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Qui a lu ce livre ?</DialogTitle>
+                      <DialogDescription>
+                        Cliquez sur un membre pour ajouter ou retirer de la liste des lecteurs.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-4">
+                      {['ALIOU', 'SYLVIA', 'SACHA', 'LISA'].map((member) => {
+                        const isReader = book.readers.some((r: any) => r.name.toUpperCase() === member);
+                        return (
+                          <Button
+                            key={member}
+                            variant={isReader ? "default" : "outline"}
+                            className="h-16 flex flex-col gap-1 relative"
+                            onClick={async () => {
+                              const newStatus = isReader ? 'TO_READ' : 'READ';
+                              try {
+                                const response = await request<{ success: boolean; data: any }>(`/books/${id}/reading-status`, {
+                                  method: 'POST',
+                                  body: { userId: member, status: newStatus }
+                                });
+                                if (response.success) {
+                                  // Force reload to update list
+                                  const bookData = await request<{ success: boolean; data: any }>(`/books/${id}?userId=ALIOU`);
+                                  if (bookData.success) {
+                                    setBook(bookData.data);
+                                    setUserStatus(bookData.data.status);
+                                  }
+                                }
+                              } catch (e) { console.error(e); }
+                            }}
+                          >
+                            <span className="text-2xl">
+                              {member === 'ALIOU' ? '👨' : member === 'SYLVIA' ? '👩' : member === 'SACHA' ? '👦' : '👧'}
+                            </span>
+                            <span className="capitalize">{member.toLowerCase()}</span>
+                            {isReader && <span className="absolute top-2 right-2 text-xs">✓</span>}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
           </div>

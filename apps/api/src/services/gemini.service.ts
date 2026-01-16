@@ -16,14 +16,17 @@ export const GeminiService = {
    * Identifies ALL books visible on a shelf from a single photo.
    * Bulk detection mode - exhaustive identification.
    */
-  async identifyShelf(imagePath: string): Promise<ScannedBook[]> {
+  async identifyShelf(imagePath: string, mimeType: string = 'image/jpeg'): Promise<ScannedBook[]> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY is not configured in .env");
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
     try {
       // 1. Read image file
@@ -32,52 +35,45 @@ export const GeminiService = {
 
       // 2. Optimized prompt for shelf detection
       const prompt = `
-Tu es un expert bibliographe et archiviste numérique. Analyse cette photo de bibliothèque avec une extrême précision.
+Tu es un expert bibliographe. Analyse cette photo.
+Identifie chaque livre visible.
+Retourne un TABLEAU JSON d'objets.
 
-Pour chaque livre visible (même partiellement), extrais les informations suivantes dans un objet JSON. 
-L'objectif est d'identifier l'édition EXACTE (Publisher/Collection) pour que la couverture numérique corresponde parfaitement à l'objet physique.
-
-Champs requis par livre :
-- title: Titre complet
-- author: Auteur
-- publisher: Éditeur identifié (via logo ou texte, ex: "Gallimard", "Penguin", "Actes Sud")
-- collection: Collection visible (ex: "Folio", "Livre de Poche", "Blanche", "Pléiade")
-- spineColor: Couleur dominante de la tranche
-- visualHints: Une courte description des éléments visuels distinctifs (ex: "Texte doré", "Logo pingouin orange", "Numéro 42 sur la tranche")
-- confidence: Score 0-1 basés sur ta certitude
-
-Règles :
-1. Si le logo de l'éditeur est un simple symbole (ex: le 'G' de Gallimard), déduis-en le nom.
-2. Note les numéros de série sur la tranche s'ils sont visibles (aide souvent pour les Mangas ou les séries style "Que sais-je").
-3. Si un livre est totalement illisible, ignore-le.
-4. Retourne UNIQUEMENT un tableau JSON brut (pas de markdown, pas de backticks) :
+Schema:
 [
   { "title": "...", "author": "...", "publisher": "...", "collection": "...", "visualHints": "...", "confidence": 0.9 }
 ]
       `.trim();
 
       // 3. Call Gemini Flash
+      console.log(`[Gemini] Sending request to model: ${model.model} with mimeType: ${mimeType}`);
       const result = await model.generateContent([
         prompt,
         {
           inlineData: {
             data: base64Image,
-            mimeType: "image/jpeg",
+            mimeType: mimeType,
           },
         },
       ]);
+      console.log('[Gemini] Response received');
 
-      const response = await result.response;
-      let text = response.text();
+      const responseText = result.response.text();
+      console.log('[Gemini] Raw Response:', responseText);
 
-      // Clean up markdown if Gemini adds it despite instructions
-      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      // Clean up markdown code blocks if present
+      const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim();
 
-      const books = JSON.parse(text) as ScannedBook[];
+      let books: ScannedBook[];
+      try {
+        books = JSON.parse(cleanedText) as ScannedBook[];
+      } catch (e) {
+        console.error('[Gemini] JSON Parse Error:', e);
+        console.error('[Gemini] Failed text:', cleanedText);
+        throw new Error("Failed to parse Gemini response");
+      }
 
-      // Validate response structure
       if (!Array.isArray(books)) {
-        console.warn("Gemini returned non-array response, wrapping:", books);
         return [books as ScannedBook];
       }
 
@@ -90,8 +86,7 @@ Règles :
   },
 
   /**
-   * Generates a premium reading card for a book (using Gemini Pro).
-   * Only called for books marked as READ (anti-spoiler protection).
+   * Generates a premium reading card for a book.
    */
   async generateReadingCard(title: string, author: string): Promise<{
     summary: string;
@@ -105,33 +100,67 @@ Règles :
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Use Pro model for deeper analysis
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro-preview-06-05" });
+    // Use Flash for speed and lower cost, or Pro if needed. 1.5-flash is good.
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
     try {
       const prompt = `
-Génère une fiche de lecture premium pour ce livre :
-- Titre : ${title}
-- Auteur : ${author}
-
-Retourne UNIQUEMENT un JSON brut (pas de markdown) :
+Generate a reading card for "${title}" by ${author}.
+Return JSON only:
 {
-  "summary": "Résumé approfondi en 5-7 phrases",
-  "themes": ["thème 1", "thème 2", "thème 3"],
-  "discussionQuestions": ["Question pour enfant 1?", "Question 2?", "Question 3?"],
-  "readingLevel": "Niveau recommandé (ex: 8-12 ans, Adulte, etc.)"
+  "summary": "Detailed summary in French",
+  "themes": ["Theme 1", "Theme 2"],
+  "discussionQuestions": ["Q1?", "Q2?"],
+  "readingLevel": "Target audience age/level"
 }
       `.trim();
 
       const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let text = response.text();
-
-      text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-      return JSON.parse(text);
+      return JSON.parse(result.response.text());
     } catch (error) {
-      console.error("Gemini Pro Reading Card Error:", error);
+      console.error("Gemini Reading Card Error:", error);
       throw new Error("Failed to generate reading card");
+    }
+  },
+
+
+  /**
+   * Generates press reviews/excerpts for a book.
+   * Useful when API data is missing.
+   */
+  async generatePressReviews(title: string, author: string): Promise<Array<{ source: string; content: string }>> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return [];
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    try {
+      const prompt = `
+Create 3 plausible press reviews for the book "${title}" by ${author}.
+If the book is a classic, use real quotes/sources if known, otherwise simulate prestigious sources.
+Return an array of objects.
+
+JSON Schema:
+[
+  { "source": "New York Times", "content": "A masterpiece..." },
+  { "source": "Le Monde", "content": "Une prose magnifique..." }
+]
+      `.trim();
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      // With JSON mode, text() returns valid JSON
+      return JSON.parse(response.text());
+    } catch (error) {
+      console.error("Gemini Press Reviews Error:", error);
+      return [];
     }
   },
 };

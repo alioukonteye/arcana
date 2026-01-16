@@ -1,8 +1,12 @@
 import { Request, Response } from 'express';
 import { BooksService } from '../services/books.service';
+import { GeminiService } from '../services/gemini.service';
+import { PrismaClient } from '@prisma/client';
 import { BookStatus, Owner } from '@arcana/shared';
 import fs from 'fs';
 import { z } from 'zod';
+
+const prisma = new PrismaClient();
 
 // ============ Validation Schemas ============
 const BookStatusSchema = z.enum(['TO_READ', 'READING', 'READ', 'WISHLIST']);
@@ -18,7 +22,8 @@ const UpdateReadingStatusSchema = z.object({
 });
 
 const UpdateLoanSchema = z.object({
-  loanedTo: z.string().nullable()
+  loanedTo: z.string().nullable(),
+  loanDate: z.string().optional().nullable()
 });
 
 const CreateBookSchema = z.object({
@@ -44,7 +49,9 @@ export const BooksController = {
     }
 
     try {
-      const result = await BooksService.scanShelfAndSave(req.file.path);
+      console.log(`[Scan] Request received. File: ${req.file.originalname}, Size: ${req.file.size}, Type: ${req.file.mimetype}, Path: ${req.file.path}`);
+
+      const result = await BooksService.scanShelfAndSave(req.file.path, req.file.mimetype);
 
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
@@ -55,13 +62,15 @@ export const BooksController = {
       if (req.file && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
-      console.error("Scan Error:", error);
+      console.error("[Scan] Controller Error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorStack = error instanceof Error ? error.stack : undefined;
 
       return res.status(500).json({
         success: false,
         error: "Scan failed",
         details: errorMessage,
+        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
       });
     }
   },
@@ -163,24 +172,120 @@ export const BooksController = {
       if (!book) {
         return res.status(404).json({ success: false, error: "Book not found" });
       }
+
+      // Determine user status if userId is provided
+      const currentUserId = req.query.userId as string | undefined;
+      let userStatus = book.status; // Default to global status
+
+      if (currentUserId) {
+        const userReadingStatus = book.readingStatuses.find(rs => rs.userId === currentUserId);
+        if (userReadingStatus) {
+          userStatus = userReadingStatus.status as BookStatus;
+        }
+      }
+
       // Adapter: Transform Prisma object to Frontend expected View Model
       const readers = book.readingStatuses.map(status => ({
         name: status.user.name,
         status: status.status
       }));
 
-      // Mock AI Notes structure if not present (since schema has no aiNotes field yet)
-      const aiNotes = {
-        analysis: "Analyse générée par l'IA non disponible pour le moment.",
-        themes: ["Non analysé"],
-        questions: ["Pas de questions disponibles"]
-      };
+      // Use stored AI analysis or fallback mock
+      let aiNotes = book.aiAnalysis as any;
+
+      // Self-healing: Determine what is missing or broken
+      const analysisPlaceholder = "Analyse générée par l'IA non disponible";
+      const isAnalysisMissing = !aiNotes ||
+        (aiNotes.analysis && aiNotes.analysis.includes(analysisPlaceholder));
+
+      let isReviewsMissing = !aiNotes?.reviews || aiNotes.reviews.length === 0;
+
+      if (isAnalysisMissing) {
+        // Generate EVERYTHING (fresh start)
+        try {
+          // Use Promise.allSettled to allow partial success if needed, but Promise.all is cleaner for "all or nothing" logic here
+          // We want to force generation even if it failed before
+          const [readingCard, pressReviews] = await Promise.all([
+            GeminiService.generateReadingCard(book.title, book.author),
+            GeminiService.generatePressReviews(book.title, book.author)
+          ]);
+
+          const formattedReviews = pressReviews.map(r => ({
+            source: "Presse",
+            author: r.source,
+            content: r.content,
+            rating: 5,
+            date: new Date().toISOString()
+          }));
+
+          aiNotes = {
+            ...readingCard,
+            reviews: formattedReviews
+          };
+
+          // Save to DB
+          await prisma.book.update({
+            where: { id: book.id },
+            data: { aiAnalysis: aiNotes }
+          });
+
+          // We have fresh data now
+          isReviewsMissing = false; // Reset this flag as reviews were just generated
+        } catch (e) {
+          console.error("Failed to generate complete AI analysis:", e);
+          // If it fails again, we might want to return the placeholder but NOT save it if possible?
+          // Or save it to avoid loop on every refresh if API is down.
+          // Let's keep existing fallback behavior but log it.
+          aiNotes = {
+            analysis: "Analyse générée par l'IA non disponible pour le moment.",
+            themes: ["Non analysé"],
+            questions: ["Pas de questions disponibles"],
+            reviews: []
+          };
+        }
+      } else if (isReviewsMissing) {
+        // Analysis exists but reviews missing (previous state)
+        try {
+          const generatedReviews = await GeminiService.generatePressReviews(book.title, book.author);
+          if (generatedReviews.length > 0) {
+            const formattedReviews = generatedReviews.map(r => ({
+              source: "Presse",
+              author: r.source,
+              content: r.content,
+              rating: 5,
+              date: new Date().toISOString()
+            }));
+
+            aiNotes = { ...aiNotes, reviews: formattedReviews };
+
+            await prisma.book.update({
+              where: { id: book.id },
+              data: { aiAnalysis: aiNotes }
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to generate press reviews only:", e);
+        }
+      }
+
+      // Final Check for defaults if anything failed
+      if (!aiNotes) {
+        aiNotes = {
+          analysis: "Analyse en cours de génération...",
+          themes: ["..."],
+          questions: ["..."],
+          reviews: []
+        };
+      }
+
+      const reviews = aiNotes.reviews || []; // Ensure reviews is extracted for viewModel
 
       const viewModel = {
         ...book,
+        status: userStatus, // Override status with user-specific status for the view
         readers,
         aiNotes,
-        reviews: [] // Mock empty reviews since not in DB
+        reviews: reviews // Use the fetched/generated reviews
       };
 
       return res.json({ success: true, data: viewModel });
@@ -245,7 +350,7 @@ export const BooksController = {
 
   /**
    * PATCH /books/:id/loan
-   * Update loan status (who has the book)
+   * Update loan status (who has the book and when)
    */
   async updateLoan(req: Request, res: Response) {
     try {
@@ -259,7 +364,10 @@ export const BooksController = {
         });
       }
 
-      const book = await BooksService.updateLoan(req.params.id, validationResult.data.loanedTo);
+      const { loanedTo, loanDate } = validationResult.data;
+      const loanDateObj = loanDate ? new Date(loanDate) : (loanedTo ? new Date() : null);
+
+      const book = await BooksService.updateLoan(req.params.id, loanedTo, loanDateObj);
       return res.json({ success: true, data: book });
     } catch (error) {
       console.error("Update Loan Error:", error);

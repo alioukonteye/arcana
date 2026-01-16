@@ -1,11 +1,9 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { UserButton } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
-import { Switch } from '@/components/ui/switch';
 import { useKidsMode } from '@/contexts/KidsModeContext';
-import { Sparkles, Camera, Library, Menu, X } from 'lucide-react';
+import { Camera, Library, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface LayoutProps {
   children: ReactNode;
@@ -14,8 +12,8 @@ interface LayoutProps {
   isMenuOpen?: boolean;
 }
 
-export function Layout({ children, onScanClick, onMenuClick, isMenuOpen }: LayoutProps) {
-  const { isKidsMode, toggleKidsMode } = useKidsMode();
+export function Layout({ children, onScanClick, onMenuClick }: LayoutProps) {
+  const { isKidsMode } = useKidsMode();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -70,17 +68,7 @@ export function Layout({ children, onScanClick, onMenuClick, isMenuOpen }: Layou
             )}
 
             {/* Kids Mode Toggle */}
-            <div className="flex items-center gap-1.5 md:gap-2 p-1.5 md:p-2 rounded-lg bg-muted/50">
-              <span className="text-sm text-muted-foreground hidden md:inline">
-                {isKidsMode ? (
-                  <Sparkles className="h-4 w-4 text-yellow-500 inline" />
-                ) : (
-                  'Enfant'
-                )}
-              </span>
-              <Switch checked={isKidsMode} onCheckedChange={toggleKidsMode} />
-              {isKidsMode && <span className="text-sm hidden md:inline">👶</span>}
-            </div>
+
 
             {/* User Profile */}
             <div className="flex items-center">

@@ -16,13 +16,13 @@ export const BooksService = {
    * Bulk scan: Identifies all books on a shelf and auto-inserts them.
    * Uses 70% confidence threshold, silently skips unreadable books.
    */
-  async scanShelfAndSave(imagePath: string): Promise<ScanResult> {
+  async scanShelfAndSave(imagePath: string, mimeType: string = 'image/jpeg'): Promise<ScanResult> {
     const savedBooks: ScanResult['books'] = [];
     const stats = { detected: 0, added: 0, duplicates: 0, skipped: 0 };
 
     try {
       // Step 1: Bulk identify books with Gemini Flash
-      const geminiResults = await GeminiService.identifyShelf(imagePath);
+      const geminiResults = await GeminiService.identifyShelf(imagePath, mimeType);
       stats.detected = geminiResults.length;
 
       if (geminiResults.length === 0) {
@@ -257,23 +257,83 @@ export const BooksService = {
   },
 
   async updateReadingStatus(bookId: string, userId: string, status: BookStatus) {
+    if (status === 'READ') {
+      const book = await prisma.book.findUnique({ where: { id: bookId } });
+      if (book && !book.aiAnalysis) {
+        try {
+          // Trigger AI analysis if not already present
+          const analysis = await GeminiService.generateReadingCard(book.title, book.author);
+          await prisma.book.update({
+            where: { id: bookId },
+            data: { aiAnalysis: analysis as any },
+          });
+        } catch (error) {
+          console.error(`Failed to generate AI analysis for book ${bookId}:`, error);
+          // Continue even if analysis fails, so user can still mark as read
+        }
+      }
+    }
+
+    // Update global status if user is marking as read?
+    // The requirement says "mark as read for current user", but also "book appears read for me".
+    // Also "On home page we must see status is read". This implies global status OR per-user status check on list.
+    // For now, let's keep global status loose but ensure per-user status is tracked.
+
+    // Custom User Resolution Logic to handle potential ID/Name conflicts
+    let targetUserId = userId; // Default to passed ID
+
+    try {
+      // 1. Check if user exists by ID
+      const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+
+      if (!existingUser) {
+        // 2. Check if user exists by Name (case insensitive search if possible, but schema is strict unique)
+        // We normalize name from ID: 'ALIOU' -> 'Aliou'
+        const normalizedName = userId.charAt(0).toUpperCase() + userId.slice(1).toLowerCase();
+
+        const userByName = await prisma.user.findUnique({
+          where: { name: normalizedName }
+        });
+
+        if (userByName) {
+          // Found by name! Use this existing user's ID
+          targetUserId = userByName.id;
+        } else {
+          // 3. Create new user if not found
+          // We can safe create now
+          await prisma.user.create({
+            data: {
+              id: userId, // Try to use the requested ID
+              name: normalizedName,
+              birthDate: new Date(),
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("User resolution failed, attempting to proceed with raw ID:", e);
+    }
+
     return prisma.readingStatus.upsert({
       where: {
-        userId_bookId: { userId, bookId },
+        userId_bookId: { userId: targetUserId, bookId },
       },
       update: { status: status as unknown as PrismaBookStatus },
       create: {
         bookId,
-        userId,
+        userId: targetUserId, // Use the resolved real ID
         status: status as unknown as PrismaBookStatus,
       },
     });
   },
 
-  async updateLoan(bookId: string, loanedTo: string | null) {
+  async updateLoan(bookId: string, loanedTo: string | null, loanDate: Date | null = null) {
     return prisma.book.update({
       where: { id: bookId },
-      data: { loanedTo },
+      data: {
+        loanedTo,
+        loanDate
+      },
     });
   },
 

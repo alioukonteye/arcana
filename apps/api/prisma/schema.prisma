@@ -52,6 +52,7 @@ model Book {
   // Scan metadata
   confidenceScore Float?     // 0-1 from Gemini
   googleBooksId   String?    // For cross-validation
+  aiAnalysis      Json?      // AI-generated reading card (analysis, themes, questions)
 
   // Inventory
   status          BookStatus @default(TO_READ)
@@ -60,6 +61,7 @@ model Book {
 
   // Loan tracking (simple)
   loanedTo        String?    // Borrower name when book is out
+  loanDate        DateTime?  // Date when the book was lent
 
   // Relations
   addedById       String?
