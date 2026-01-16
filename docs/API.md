@@ -130,6 +130,52 @@ Content-Type: multipart/form-data
 
 ---
 
+#### `POST /books`
+
+Ajoute manuellement un livre (ex: Wishlist).
+
+**Body:**
+
+```json
+{
+  "title": "Titre du livre",
+  "author": "Nom de l'auteur",
+  "status": "WISHLIST",
+  "owner": "FAMILY"
+}
+```
+
+**Réponse succès (201):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-xxx",
+    "title": "Titre du livre",
+    "status": "WISHLIST",
+    ...
+  }
+}
+```
+
+---
+
+#### `DELETE /books/:id`
+
+Supprime définitivement un livre de l'inventaire.
+
+**Réponse succès (200):**
+
+```json
+{
+  "success": true,
+  "message": "Book deleted"
+}
+```
+
+---
+
 #### `GET /books`
 
 Récupère tous les livres de l'inventaire avec filtres optionnels.
@@ -138,7 +184,7 @@ Récupère tous les livres de l'inventaire avec filtres optionnels.
 
 | Paramètre | Type | Description |
 |-----------|------|-------------|
-| `status` | string | Filtrer par statut: `TO_READ`, `READING`, `READ` |
+| `status` | string | Filtrer par statut: `TO_READ`, `READING`, `READ`, `WISHLIST` |
 | `owner` | string | Filtrer par propriétaire: `ALIOU`, `SYLVIA`, `SACHA`, `LISA`, `FAMILY` |
 | `category` | string | Filtrer par catégorie Google Books |
 | `search` | string | Recherche textuelle (titre, auteur) |
@@ -239,6 +285,7 @@ Met à jour le statut global de lecture d'un livre.
 | `TO_READ` | À lire |
 | `READING` | En cours de lecture |
 | `READ` | Lu |
+| `WISHLIST` | Liste de souhaits |
 
 ---
 

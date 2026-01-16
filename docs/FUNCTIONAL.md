@@ -178,6 +178,23 @@ And ignore silencieusement les livres illisibles
 
 ---
 
+### US7: Gestion Complète (Wishlist & Suppression) ✅
+
+**En tant qu'** utilisateur
+**Je veux** pouvoir ajouter un livre manuellement à une wishlist et supprimer des livres incorrects
+**Afin de** maintenir un inventaire propre et planifier mes futures lectures
+
+#### Critères d'acceptation
+
+| # | Critère | Statut |
+|---|---------|--------|
+| 1 | Statut `WISHLIST` disponible | ✅ |
+| 2 | Ajout manuel de livre (sans scan) | ✅ |
+| 3 | Suppression définitive d'un livre | ✅ |
+| 4 | Filtre spécifique pour la Wishlist | ✅ |
+
+---
+
 ## Profils Famille
 
 L'application est pré-configurée avec la famille Konteye:
@@ -311,6 +328,7 @@ stateDiagram-v2
 | TO_READ | "À lire" | `secondary` (gris) |
 | READING | "En cours" | `primary` (bleu) |
 | READ | "Lu" | `success` (vert) |
+| WISHLIST | "Wishlist" | `secondary` (violet) |
 | ON_LOAN | "En prêt" + nom | `warning` (orange) |
 | MULTIPLE | "x2", "x3"... | Badge superposé |
 

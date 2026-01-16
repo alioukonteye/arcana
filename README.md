@@ -35,6 +35,7 @@ Arcana est le **cœur numérique** de notre foyer. Il connecte toute la famille 
 | 🔄 **Suivi des Prêts** | Ne perdez plus jamais un livre prêté | ✅ |
 | 🤖 **Cartes de Lecture IA** | Résumés et questions (protégés anti-spoiler) | ✅ |
 | 👤 **Statut par Utilisateur** | Chaque membre suit sa propre progression | ✅ |
+| 📜 **Wishlist & Gestion** | Créez des listes d'envies et gérez votre collection manuellement | ✅ |
 | 👶 **Mode Enfants** | Interface simplifiée pour les plus jeunes | ✅ |
 
 ## 🚀 Démarrage Rapide

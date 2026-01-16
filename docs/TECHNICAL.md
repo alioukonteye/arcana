@@ -271,9 +271,10 @@ Arcana utilise **shadcn/ui** avec des variables CSS personnalisables:
 
 ```prisma
 enum BookStatus {
-  TO_READ   // À lire
-  READING   // En cours
-  READ      // Lu
+  TO_READ
+  READING
+  READ
+  WISHLIST
 }
 
 enum Owner {
@@ -285,10 +286,15 @@ enum Owner {
 }
 
 model User {
-  id              String          @id @default(uuid())
-  name            String          @unique
-  isChild         Boolean         @default(false)
-  birthDate       DateTime
+  id        String   @id @default(uuid())
+  clerkId   String?  @unique
+  email     String?  @unique
+  name      String   @unique
+  isChild   Boolean  @default(false)
+  birthDate DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   loans           Loan[]
   books           Book[]          @relation("AddedBy")
   readingStatuses ReadingStatus[]
@@ -304,22 +310,29 @@ model Book {
   publisher       String?
   publishedDate   String?
   pageCount       Int?
-  categories      String[]   @default([])  // From Google Books
+  categories      String[]   @default([])
 
   // Scan metadata
   confidenceScore Float?     // 0-1 from Gemini
-  googleBooksId   String?
+  googleBooksId   String?    // For cross-validation
+  aiAnalysis      Json?      // AI-generated reading card (analysis, themes, questions)
 
   // Inventory
   status          BookStatus @default(TO_READ)
   owner           Owner      @default(FAMILY)
-  copyNumber      Int        @default(1)
+  copyNumber      Int        @default(1)  // For multiple copies
 
   // Loan tracking (simple)
   loanedTo        String?    // Borrower name when book is out
+  loanDate        DateTime?  // Date when the book was lent
 
   // Relations
-  addedBy         User?      @relation("AddedBy")
+  addedById       String?
+  addedBy         User?      @relation("AddedBy", fields: [addedById], references: [id])
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
   loans           Loan[]
   readingStatuses ReadingStatus[]
 
@@ -330,21 +343,31 @@ model Book {
 
 model Loan {
   id           String    @id @default(uuid())
-  book         Book      @relation(...)
+  bookId       String
+  book         Book      @relation(fields: [bookId], references: [id])
+
   borrowerName String
-  lentBy       User?
+
+  lentById     String?
+  lentBy       User?     @relation(fields: [lentById], references: [id])
+
   lentAt       DateTime  @default(now())
   returnedAt   DateTime?
+
+  @@index([bookId])
 }
 
-// Per-user reading status tracking (US5: who read what)
+// Per-user reading status tracking (who read what)
 model ReadingStatus {
   id        String     @id @default(uuid())
   userId    String
-  user      User       @relation(...)
+  user      User       @relation(fields: [userId], references: [id])
   bookId    String
-  book      Book       @relation(...)
+  book      Book       @relation(fields: [bookId], references: [id])
   status    BookStatus @default(TO_READ)
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@unique([userId, bookId])
   @@index([userId])
