@@ -36,18 +36,24 @@ export function BookDetailsPage() {
   const [loanedTo, setLoanedTo] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) {
-      request<{ success: boolean; data: any }>(`/books/${id}`)
-        .then(data => {
-          if (data.success) {
-            setBook(data.data);
-            setUserStatus(data.data.status);
-          }
-        })
-        .catch(err => console.error(err))
-        .finally(() => setLoading(false));
-    }
-  }, [id]);
+    const fetchBook = async () => {
+      if (!id) return;
+
+      try {
+        const data = await request<{ success: boolean; data: any }>(`/books/${id}`);
+        if (data.success) {
+          setBook(data.data);
+          setUserStatus(data.data.status);
+        }
+      } catch (err) {
+        console.error('Failed to fetch book:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBook();
+  }, [id]); // request is stable from useApi, so we don't need to include it
 
   const handleDelete = async () => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce livre ?')) return;

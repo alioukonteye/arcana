@@ -41,3 +41,26 @@ Strict unidirectional flow:
 -   **TypeScript**: Strict mode enabled. `No Explicit Any`.
 -   **API Contracts**: All request/response bodies MUST be typed via Zod schemas in `packages/shared`.
 -   **Error Handling**: Global Error Handler middleware in Express.
+
+🛡️ Adaptability Protocol (Scale-Adaptive Intelligence)
+To optimize project velocity while ensuring industrial-grade stability, the assistant must adjust its depth of reasoning based on the nature of the requested task:
+
+Category A: UI/UX & Design ("Fast Vibe" Mode)
+Scope: CSS adjustments, creation of presentational components, animations, icons, text modifications, or theme updates.
+
+Expected Behavior: Direct, creative, and fast execution. Absolute priority given to visual elegance and adherence to native shadcn/ui components. No heavy technical justification required.
+
+Objective: Meet Sylvia’s aesthetic requirements and maintain the playful feel for Sacha and Lisa without slowing down the creative flow.
+
+Category B: Logic, Database, Auth & Architecture ("High Precision" Mode)
+Scope: Prisma schema, database migrations, security (Clerk, Whitelist), complex business logic, AI service integration (Gemini).
+
+Expected Behavior: MANDATORY HALT before any code modification. The assistant must submit an impact plan or a technical note detailing:
+
+Changes to TypeScript types.
+
+Data security implications.
+
+Potential side effects on other services.
+
+Objective: Guarantee the "Zero Debt" principle, ensure the security of the Family Hub, and allow Aliou to validate every architectural choice to enhance his technical expertise.

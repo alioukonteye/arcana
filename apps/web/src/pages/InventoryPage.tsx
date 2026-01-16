@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { BookCard } from '@/components/BookCard';
 
 import { FilterSidebar } from '@/components/FilterSidebar';
@@ -38,7 +38,6 @@ const statusChips = [
 
 export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMenuClose }: InventoryPageProps) {
   const { isKidsMode } = useKidsMode();
-  const navigate = useNavigate();
 
   const [filters, setFilters] = useState<UseBooksFilters>({
     status: null,
@@ -332,10 +331,9 @@ export function InventoryPage({ refreshTrigger, lastScanStats, isMenuOpen, onMen
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.02 }}
                   >
-                    <BookCard
-                      book={book}
-                      onClick={() => navigate(`/books/${book.id}`)}
-                    />
+                    <Link to={`/books/${book.id}`} className="block">
+                      <BookCard book={book} />
+                    </Link>
                   </motion.div>
                 ))}
               </div>
