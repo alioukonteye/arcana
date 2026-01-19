@@ -6,6 +6,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: true, // Allow connections from network (iPhone, etc.)
     port: 5173,
     strictPort: true, // Fail if port is in use rather than incrementing
   },

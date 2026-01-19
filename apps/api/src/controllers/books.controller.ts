@@ -232,8 +232,12 @@ export const BooksController = {
             date: new Date().toISOString()
           }));
 
+          // Map ReadingCard fields to frontend-expected structure
           aiNotes = {
-            ...readingCard,
+            analysis: readingCard.summary || "Analyse en cours de génération...",
+            themes: readingCard.themes || [],
+            questions: readingCard.discussionQuestions || [],
+            readingLevel: readingCard.readingLevel,
             reviews: formattedReviews
           };
 

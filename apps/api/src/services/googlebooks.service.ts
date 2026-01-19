@@ -38,48 +38,66 @@ interface ValidationResult {
 }
 
 export const GoogleBooksService = {
-  async validateAndEnrich(title: string, author: string, publisher?: string): Promise<ValidationResult> {
+  async validateAndEnrich(
+    title: string,
+    author: string,
+    isbn?: string,
+    publisher?: string,
+    collection?: string
+  ): Promise<ValidationResult> {
     try {
+      // Strategy 1: If ISBN is provided, search by ISBN first (most precise)
+      if (isbn) {
+        console.log(`🔍 Searching by ISBN: ${isbn}`);
+        const isbnResult = await this.searchByISBN(isbn);
+        if (isbnResult) {
+          return isbnResult;
+        }
+        console.log(`⚠️  ISBN search failed, falling back to title/author search`);
+      }
+
+      // Strategy 2: Search by title + author + publisher + collection
       let query = `intitle:${title}+inauthor:${author}`;
       if (publisher) {
-        // Adding publisher to search query for better precision
         query += `+inpublisher:${publisher}`;
       }
+      // Note: Google Books API doesn't have a direct "collection" filter,
+      // but we can use it in the matching logic below
 
       const encodedQuery = encodeURIComponent(query);
       const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
 
       // API key is optional for basic queries
       const url = apiKey
-        ? `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&key=${apiKey}&maxResults=5`
-        : `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&maxResults=5`;
+        ? `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&key=${apiKey}&maxResults=10`
+        : `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&maxResults=10`;
 
       const response = await axios.get(url);
 
       if (!response.data.items || response.data.items.length === 0) {
         // Fallback: if publisher was used and no results, try without publisher
-        if (publisher) {
+        if (publisher || collection) {
           return this.validateAndEnrich(title, author);
         }
         return { isValid: false, confidence: 0 };
       }
 
-      // Find best match
-      const bestMatch = this.findBestMatch(title, author, response.data.items, publisher);
+      // Find best match considering publisher and collection
+      const bestMatch = this.findBestMatch(title, author, response.data.items, publisher, collection);
 
       if (!bestMatch) {
         // Fallback if strict matching failed
-        if (publisher) {
+        if (publisher || collection) {
           return this.validateAndEnrich(title, author);
         }
         return { isValid: false, confidence: 0 };
       }
 
       const volumeInfo = bestMatch.volumeInfo as GoogleBookResult;
-      const confidence = this.calculateConfidence(title, author, volumeInfo, publisher);
+      const confidence = this.calculateConfidence(title, author, volumeInfo, publisher, collection);
 
-      // Get ISBN
-      const isbn = volumeInfo.industryIdentifiers?.find(
+      // Get ISBN from result
+      const resultIsbn = volumeInfo.industryIdentifiers?.find(
         (id: { type: string }) => id.type === 'ISBN_13' || id.type === 'ISBN_10'
       )?.identifier;
 
@@ -96,13 +114,62 @@ export const GoogleBooksService = {
           publisher: volumeInfo.publisher,
           publishedDate: volumeInfo.publishedDate,
           pageCount: volumeInfo.pageCount,
-          isbn,
+          isbn: resultIsbn,
           categories: volumeInfo.categories || [],
         },
       };
     } catch (error) {
       console.error('Google Books API Error:', error);
       return { isValid: false, confidence: 0 };
+    }
+  },
+
+  /**
+   * Search directly by ISBN (most accurate method)
+   */
+  async searchByISBN(isbn: string): Promise<ValidationResult | null> {
+    try {
+      // Clean ISBN (remove dashes, spaces)
+      const cleanIsbn = isbn.replace(/[-\s]/g, '');
+
+      const apiKey = process.env.GOOGLE_BOOKS_API_KEY;
+      const url = apiKey
+        ? `https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}&key=${apiKey}`
+        : `https://www.googleapis.com/books/v1/volumes?q=isbn:${cleanIsbn}`;
+
+      const response = await axios.get(url);
+
+      if (!response.data.items || response.data.items.length === 0) {
+        return null;
+      }
+
+      // ISBN search should return exact match (usually just 1 result)
+      const bestMatch = response.data.items[0];
+      const volumeInfo = bestMatch.volumeInfo as GoogleBookResult;
+
+      const resultIsbn = volumeInfo.industryIdentifiers?.find(
+        (id: { type: string }) => id.type === 'ISBN_13' || id.type === 'ISBN_10'
+      )?.identifier;
+
+      const coverUrl = this.getBestCoverUrl(volumeInfo.imageLinks);
+
+      return {
+        isValid: true,
+        confidence: 1.0, // ISBN match = 100% confidence
+        googleBooksId: bestMatch.id,
+        enrichedData: {
+          coverUrl,
+          description: volumeInfo.description,
+          publisher: volumeInfo.publisher,
+          publishedDate: volumeInfo.publishedDate,
+          pageCount: volumeInfo.pageCount,
+          isbn: resultIsbn,
+          categories: volumeInfo.categories || [],
+        },
+      };
+    } catch (error) {
+      console.error('ISBN Search Error:', error);
+      return null;
     }
   },
 
@@ -131,24 +198,43 @@ export const GoogleBooksService = {
     return secureUrl;
   },
 
-  findBestMatch(title: string, author: string, items: any[], publisher?: string): any | null {
+  findBestMatch(
+    title: string,
+    author: string,
+    items: any[],
+    publisher?: string,
+    collection?: string
+  ): any | null {
     const normalizedTitle = title.toLowerCase().trim();
     const normalizedAuthor = author.toLowerCase().trim();
     const normalizedPublisher = publisher?.toLowerCase().trim();
+    const normalizedCollection = collection?.toLowerCase().trim();
 
     for (const item of items) {
       const volumeInfo = item.volumeInfo;
       const itemTitle = (volumeInfo.title || '').toLowerCase();
       const itemAuthors = (volumeInfo.authors || []).join(' ').toLowerCase();
       const itemPublisher = (volumeInfo.publisher || '').toLowerCase();
+      // Collection info might be in subtitle or title
+      const itemSubtitle = (volumeInfo.subtitle || '').toLowerCase();
+      const fullItemTitle = `${itemTitle} ${itemSubtitle}`;
 
       // Check title similarity
       if (itemTitle.includes(normalizedTitle) || normalizedTitle.includes(itemTitle)) {
         // Check author similarity
         if (itemAuthors.includes(normalizedAuthor) || normalizedAuthor.includes(itemAuthors)) {
-          // If publisher provided, authorize specific publisher check
+          // If publisher provided, check publisher match
           if (normalizedPublisher) {
             if (itemPublisher.includes(normalizedPublisher) || normalizedPublisher.includes(itemPublisher)) {
+              // If collection also provided, prefer exact collection match
+              if (normalizedCollection) {
+                if (fullItemTitle.includes(normalizedCollection) || itemPublisher.includes(normalizedCollection)) {
+                  // Perfect match with publisher AND collection
+                  return item;
+                }
+                // Continue searching for better match
+                continue;
+              }
               // Perfect match with publisher
               return item;
             }
@@ -159,24 +245,31 @@ export const GoogleBooksService = {
       }
     }
 
-    // If we demanded publisher but didn't find exact match, return first valid title/author match
-    // Or return first result as fallback if absolutely necessary, but better to be strict first
-    if (publisher) {
-      // Try to find just title/author match ignoring publisher
+    // If we demanded publisher/collection but didn't find exact match, try more lenient search
+    if (publisher || collection) {
+      // Try to find just title/author match ignoring publisher/collection
       return this.findBestMatch(title, author, items);
     }
 
     return items[0];
   },
 
-  calculateConfidence(title: string, author: string, volumeInfo: GoogleBookResult, publisher?: string): number {
+  calculateConfidence(
+    title: string,
+    author: string,
+    volumeInfo: GoogleBookResult,
+    publisher?: string,
+    collection?: string
+  ): number {
     let score = 0;
-    const maxScore = publisher ? 120 : 100; // Boost possible score if publisher matches
+    const maxScore = (publisher ? 20 : 0) + (collection ? 15 : 0) + 100; // Dynamic max based on available metadata
 
     const normalizedTitle = title.toLowerCase().trim();
     const normalizedAuthor = author.toLowerCase().trim();
     const bookTitle = (volumeInfo.title || '').toLowerCase();
     const bookAuthors = (volumeInfo.authors || []).join(' ').toLowerCase();
+    const bookSubtitle = (volumeInfo.subtitle || '').toLowerCase();
+    const fullTitle = `${bookTitle} ${bookSubtitle}`;
 
     // Title match (50 points max)
     if (bookTitle === normalizedTitle) {
@@ -205,6 +298,15 @@ export const GoogleBooksService = {
       const bookPublisher = volumeInfo.publisher.toLowerCase();
       if (bookPublisher.includes(normalizedPublisher) || normalizedPublisher.includes(bookPublisher)) {
         score += 20;
+      }
+    }
+
+    // Collection match (15 bonus points) - check in title/subtitle
+    if (collection) {
+      const normalizedCollection = collection.toLowerCase().trim();
+      if (fullTitle.includes(normalizedCollection) ||
+        (volumeInfo.publisher && volumeInfo.publisher.toLowerCase().includes(normalizedCollection))) {
+        score += 15;
       }
     }
 

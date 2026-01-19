@@ -329,7 +329,7 @@ export function BookDetailsPage() {
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-3 text-purple-900 dark:text-purple-100">L'avis de l'IA</h3>
                 <p className="text-lg leading-relaxed text-foreground/90 font-serif">
-                  {book.aiNotes.analysis}
+                  {book.aiNotes?.analysis || "Analyse en cours de génération..."}
                 </p>
               </div>
 
@@ -337,7 +337,7 @@ export function BookDetailsPage() {
                 <div>
                   <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Thèmes clés</h4>
                   <div className="flex flex-wrap gap-2">
-                    {book.aiNotes.themes.map((theme: string) => (
+                    {(book.aiNotes?.themes || ["Non analysé"]).map((theme: string) => (
                       <Badge key={theme} variant="outline" className="px-3 py-1 border-purple-200 bg-purple-50/50 dark:border-purple-800 dark:bg-purple-900/20">
                         {theme}
                       </Badge>
@@ -348,7 +348,7 @@ export function BookDetailsPage() {
                 <div>
                   <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground mb-4">Questions de discussion</h4>
                   <ul className="space-y-3">
-                    {book.aiNotes.questions.map((q: string, i: number) => (
+                    {(book.aiNotes?.questions || ["Pas de questions disponibles"]).map((q: string, i: number) => (
                       <li key={i} className="flex gap-3 text-sm">
                         <span className="flex-shrink-0 h-6 w-6 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 flex items-center justify-center text-xs font-bold">
                           {i + 1}
