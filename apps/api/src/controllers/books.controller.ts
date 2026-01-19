@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { BooksService } from '../services/books.service';
-import { GeminiService } from '../services/gemini.service';
+import { LLMService } from '../services/llm.service';
 import { PrismaClient } from '@prisma/client';
 import { BookStatus, Owner } from '@arcana/shared';
 import fs from 'fs';
@@ -48,15 +48,34 @@ export const BooksController = {
       return res.status(400).json({ error: "No image file provided" });
     }
 
-    try {
-      console.log(`[Scan] Request received. File: ${req.file.originalname}, Size: ${req.file.size}, Type: ${req.file.mimetype}, Path: ${req.file.path}`);
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
-      const result = await BooksService.scanShelfAndSave(req.file.path, req.file.mimetype);
+    // Helper to send SSE events
+    const sendEvent = (type: string, payload: any) => {
+      res.write(`data: ${JSON.stringify({ type, payload })}\n\n`);
+    };
+
+    try {
+      console.log(`[Scan] Request received. File: ${req.file.originalname}`);
+
+      const result = await BooksService.scanShelfAndSave(
+        req.file.path,
+        req.file.mimetype,
+        (progress) => {
+          sendEvent('progress', progress);
+        }
+      );
+
+      // Send final result
+      sendEvent('complete', result);
 
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
 
-      return res.json(result);
+      res.end();
     } catch (error) {
       // Clean up on error too
       if (req.file && fs.existsSync(req.file.path)) {
@@ -64,14 +83,9 @@ export const BooksController = {
       }
       console.error("[Scan] Controller Error:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      const errorStack = error instanceof Error ? error.stack : undefined;
 
-      return res.status(500).json({
-        success: false,
-        error: "Scan failed",
-        details: errorMessage,
-        stack: process.env.NODE_ENV === 'development' ? errorStack : undefined
-      });
+      sendEvent('error', { message: errorMessage });
+      res.end();
     }
   },
 
@@ -191,7 +205,7 @@ export const BooksController = {
       }));
 
       // Use stored AI analysis or fallback mock
-      let aiNotes = book.aiAnalysis as any;
+      let aiNotes = (book as any).aiAnalysis;
 
       // Self-healing: Determine what is missing or broken
       const analysisPlaceholder = "Analyse générée par l'IA non disponible";
@@ -206,8 +220,8 @@ export const BooksController = {
           // Use Promise.allSettled to allow partial success if needed, but Promise.all is cleaner for "all or nothing" logic here
           // We want to force generation even if it failed before
           const [readingCard, pressReviews] = await Promise.all([
-            GeminiService.generateReadingCard(book.title, book.author),
-            GeminiService.generatePressReviews(book.title, book.author)
+            LLMService.generateReadingCard(book.title, book.author),
+            LLMService.generatePressReviews(book.title, book.author)
           ]);
 
           const formattedReviews = pressReviews.map(r => ({
@@ -226,7 +240,7 @@ export const BooksController = {
           // Save to DB
           await prisma.book.update({
             where: { id: book.id },
-            data: { aiAnalysis: aiNotes }
+            data: { aiAnalysis: aiNotes } as any
           });
 
           // We have fresh data now
@@ -246,7 +260,7 @@ export const BooksController = {
       } else if (isReviewsMissing) {
         // Analysis exists but reviews missing (previous state)
         try {
-          const generatedReviews = await GeminiService.generatePressReviews(book.title, book.author);
+          const generatedReviews = await LLMService.generatePressReviews(book.title, book.author);
           if (generatedReviews.length > 0) {
             const formattedReviews = generatedReviews.map(r => ({
               source: "Presse",
@@ -260,7 +274,7 @@ export const BooksController = {
 
             await prisma.book.update({
               where: { id: book.id },
-              data: { aiAnalysis: aiNotes }
+              data: { aiAnalysis: aiNotes } as any
             });
           }
         } catch (e) {

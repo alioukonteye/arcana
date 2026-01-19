@@ -1,5 +1,5 @@
 import { PrismaClient, BookStatus as PrismaBookStatus, Owner as PrismaOwner } from '@prisma/client';
-import { GeminiService, ScannedBook } from './gemini.service';
+import { LLMService, ScannedBook } from './llm.service';
 import { GoogleBooksService } from './googlebooks.service';
 import {
   BookStatus,
@@ -16,13 +16,17 @@ export const BooksService = {
    * Bulk scan: Identifies all books on a shelf and auto-inserts them.
    * Uses 70% confidence threshold, silently skips unreadable books.
    */
-  async scanShelfAndSave(imagePath: string, mimeType: string = 'image/jpeg'): Promise<ScanResult> {
+  async scanShelfAndSave(
+    imagePath: string,
+    mimeType: string = 'image/jpeg',
+    onProgress?: (data: any) => void // Generic type for flexibility
+  ): Promise<ScanResult> {
     const savedBooks: ScanResult['books'] = [];
     const stats = { detected: 0, added: 0, duplicates: 0, skipped: 0 };
 
     try {
       // Step 1: Bulk identify books with Gemini Flash
-      const geminiResults = await GeminiService.identifyShelf(imagePath, mimeType);
+      const geminiResults = await LLMService.identifyShelf(imagePath, mimeType, onProgress);
       stats.detected = geminiResults.length;
 
       if (geminiResults.length === 0) {
@@ -41,8 +45,14 @@ export const BooksService = {
           const validation = await GoogleBooksService.validateAndEnrich(
             book.title,
             book.author,
-            book.publisher // Pass extracted publisher for better matching
+            book.publisher
           );
+
+          onProgress?.({
+            step: 'enriching',
+            message: `🔍 Vérification : ${book.title}`,
+            progress: 50 + ((stats.detected > 0 ? (stats.added + stats.skipped) / stats.detected : 0) * 40)
+          });
 
           const finalConfidence = (book.confidence + validation.confidence) / 2;
 
@@ -262,10 +272,10 @@ export const BooksService = {
       if (book && !book.aiAnalysis) {
         try {
           // Trigger AI analysis if not already present
-          const analysis = await GeminiService.generateReadingCard(book.title, book.author);
+          const analysis = await LLMService.generateReadingCard(book.title, book.author);
           await prisma.book.update({
             where: { id: bookId },
-            data: { aiAnalysis: analysis as any },
+            data: { aiAnalysis: analysis as any } as any,
           });
         } catch (error) {
           console.error(`Failed to generate AI analysis for book ${bookId}:`, error);
@@ -333,7 +343,7 @@ export const BooksService = {
       data: {
         loanedTo,
         loanDate
-      },
+      } as any,
     });
   },
 
@@ -369,7 +379,7 @@ export const BooksService = {
     }
 
     // Generate premium reading card via Gemini Pro
-    return GeminiService.generateReadingCard(book.title, book.author);
+    return LLMService.generateReadingCard(book.title, book.author);
   },
   async deleteBook(bookId: string) {
     // Delete related records first (cascade should handle this if configured found in schema, but being safe)

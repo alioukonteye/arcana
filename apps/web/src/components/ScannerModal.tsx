@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
-import { useApi } from '@/lib/api';
+import { useAuth } from "@clerk/clerk-react";
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { Camera, Loader2, CheckCircle, XCircle, Upload, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -37,75 +38,87 @@ interface ScannerModalProps {
 
 export function ScannerModal({ isOpen, onClose, onSuccess }: ScannerModalProps) {
   const { isKidsMode } = useKidsMode();
+  const { getToken } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
-  const [loadingStep, setLoadingStep] = useState(0);
-  const { request } = useApi();
+  const [scanProgress, setScanProgress] = useState({ message: '', percent: 0 });
 
-  const loadingMessages = [
-    { text: "Envoi de l'image...", duration: 2000 },
-    { text: "Analyse par l'IA...", duration: 8000 },
-    { text: "Identification des livres...", duration: 5000 },
-    { text: "Récupération des détails...", duration: 4000 },
-    { text: "Finalisation...", duration: 2000 }
-  ];
-
-  const kidsLoadingMessages = [
-    { text: "🚀 J'envoie ta photo...", duration: 2000 },
-    { text: "🤖 Le robot regarde...", duration: 8000 },
-    { text: "📚 Je compte les livres...", duration: 5000 },
-    { text: "✨ Presque fini !", duration: 4000 }
-  ];
-
+  // Reset progress when modal opens/closes
   useEffect(() => {
-    if (!isScanning) {
-      setLoadingStep(0);
-      return;
+    if (!isOpen) {
+      setScanProgress({ message: '', percent: 0 });
     }
-
-    let currentStep = 0;
-    const messages = isKidsMode ? kidsLoadingMessages : loadingMessages;
-
-    const runStep = () => {
-      if (currentStep >= messages.length - 1) return;
-
-      const timer = setTimeout(() => {
-        currentStep++;
-        setLoadingStep(currentStep);
-        runStep();
-      }, messages[currentStep].duration);
-
-      return timer;
-    };
-
-    const timer = runStep();
-    return () => clearTimeout(timer);
-  }, [isScanning, isKidsMode]);
+  }, [isOpen]);
 
   const handleCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Get fresh token
+    const token = await getToken();
+
     setIsScanning(true);
     setResult(null);
+    setScanProgress({ message: 'Initialisation...', percent: 0 });
 
     const formData = new FormData();
     formData.append('image', file);
 
     try {
-      const data = await request<ScanResult>('/books/scan', {
+      // Use native fetch to handle SSE stream
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/books/scan`, {
         method: 'POST',
         body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`, // Pass token correctly
+          // No Content-Type header for FormData, browser sets it with boundary
+        }
       });
 
-      setResult(data);
+      if (!response.body) throw new Error("No response body");
 
-      if (data.success && data.books.length > 0) {
-        setTimeout(() => {
-          onSuccess(data.stats);
-          onClose();
-        }, 3000);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || ''; // Keep incomplete part
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.slice(6);
+            try {
+              const event = JSON.parse(jsonStr);
+
+              if (event.type === 'progress') {
+                setScanProgress({
+                  message: event.payload.message,
+                  percent: event.payload.progress
+                });
+              } else if (event.type === 'complete') {
+                setResult(event.payload);
+                if (event.payload.success && event.payload.books.length > 0) {
+                  setTimeout(() => {
+                    onSuccess(event.payload.stats);
+                    onClose();
+                  }, 3000);
+                }
+              } else if (event.type === 'error') {
+                throw new Error(event.payload.message);
+              }
+            } catch (e) {
+              console.error("SSE Parse Error", e);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error(error);
@@ -159,8 +172,8 @@ export function ScannerModal({ isOpen, onClose, onSuccess }: ScannerModalProps) 
               <div
                 onClick={() => !isScanning && fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isScanning
-                    ? 'border-muted bg-muted/30 cursor-wait'
-                    : 'cursor-pointer hover:border-primary'
+                  ? 'border-muted bg-muted/30 cursor-wait'
+                  : 'cursor-pointer hover:border-primary'
                   }`}
               >
                 <input
@@ -176,27 +189,21 @@ export function ScannerModal({ isOpen, onClose, onSuccess }: ScannerModalProps) 
                 {isScanning ? (
                   <div className="flex flex-col items-center gap-4 text-primary py-4">
                     <Loader2 className="h-12 w-12 animate-spin" />
-                    <div className="flex flex-col items-center gap-1">
-                      <p className="text-lg font-medium animate-pulse">
-                        {isKidsMode
-                          ? kidsLoadingMessages[Math.min(loadingStep, kidsLoadingMessages.length - 1)].text
-                          : loadingMessages[Math.min(loadingStep, loadingMessages.length - 1)].text}
+                    <div className="flex flex-col items-center gap-1 w-full max-w-xs">
+                      <p className="text-lg font-medium animate-pulse text-center">
+                        {scanProgress.message || 'Initialisation...'}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {isKidsMode ? 'Patience...' : 'Ne fermez pas la fenêtre'}
                       </p>
                     </div>
-                    {/* Progress Bar inspired visual */}
+                    {/* Progress Bar */}
                     <div className="w-48 h-1 bg-muted rounded-full overflow-hidden mt-2">
                       <motion.div
                         className="h-full bg-primary"
                         initial={{ width: "0%" }}
-                        animate={{ width: "100%" }}
-                        transition={{
-                          duration: 20,
-                          ease: "linear",
-                          repeat: 0
-                        }}
+                        animate={{ width: `${scanProgress.percent}%` }}
+                        transition={{ duration: 0.5 }}
                       />
                     </div>
                   </div>

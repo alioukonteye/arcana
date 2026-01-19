@@ -3,16 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 nodemon --exec tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint ."
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.10",
     "@arcana/shared": "workspace:*",
     "@clerk/clerk-sdk-node": "^5.1.6",
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^5.13.0",
+    "ai": "^6.0.39",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -21,7 +23,7 @@
     "helmet": "^8.1.0",
     "multer": "^2.0.2",
     "prisma": "^5.13.0",
-    "zod": "^3.23.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
@@ -31,6 +33,7 @@
     "@types/node": "^20.12.7",
     "nodemon": "^3.1.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.4.5"
   }
 }
