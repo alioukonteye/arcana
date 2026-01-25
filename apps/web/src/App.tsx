@@ -49,8 +49,6 @@ function AppContent() {
               <InventoryPage
                 refreshTrigger={refreshTrigger}
                 lastScanStats={lastScanStats}
-                isMenuOpen={false}
-                onMenuClose={() => { }}
               />
             </Layout>
           }
