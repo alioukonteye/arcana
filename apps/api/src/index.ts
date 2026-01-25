@@ -74,7 +74,12 @@ app.use('/users', usersRouter);
 
 // ============ Health Check ============
 
-app.get('/', (_req, res) => {
+import path from 'path';
+
+// ... (previous code)
+
+// ============ Health Check ============
+app.get('/api/health', (_req, res) => {
   res.json({
     message: 'Arcana API',
     version: '2.0.0',
@@ -82,7 +87,19 @@ app.get('/', (_req, res) => {
   });
 });
 
+// ============ Serve Frontend (Production) ============
+const frontendPath = path.join(__dirname, '../../web/dist');
+
+// Serve static files
+app.use(express.static(frontendPath));
+
+// Handle React routing, return all requests to React app
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
 app.listen(port, () => {
   console.log(`🚀 Arcana API running on port ${port}`);
   console.log(`📚 Bulk Shelf Scan enabled (70% confidence threshold)`);
+  console.log(`🎨 Serving frontend from ${frontendPath}`);
 });
