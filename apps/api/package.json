@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 nodemon --exec 'pnpm exec tsx' src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --packages=external",
+    "build": "prisma generate && esbuild src/index.ts --bundle --platform=node --target=node20 --outfile=dist/index.js --packages=external",
     "start": "node dist/index.js",
     "lint": "eslint ."
   },
