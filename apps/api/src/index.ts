@@ -7,6 +7,11 @@ import rateLimit from 'express-rate-limit';
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Trust proxy for Heroku (required for rate limiting to work correctly)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 // ============ Security Middleware ============
 
 // Helmet - Security headers (XSS, Clickjacking, etc.)
