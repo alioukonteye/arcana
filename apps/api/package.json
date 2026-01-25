@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 nodemon --exec 'pnpm exec tsx' src/index.ts",
-    "build": "tsc",
+    "build": "NODE_OPTIONS='--max-old-space-size=2048' tsc",
     "start": "node dist/index.js",
     "lint": "eslint ."
   },
